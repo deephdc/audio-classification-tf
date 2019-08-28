@@ -1,0 +1,62 @@
+# Configuration file for the image classification application
+#
+# Date: September 2018
+# Author: Ignacio Heredia
+# Email: iheredia@ifca.unican.es
+# Github: ignacioheredia
+#
+# References
+# ----------
+# https://pyyaml.org/wiki/PyYAMLDocumentation
+
+
+#####################################################
+# Options for general configuration
+#####################################################
+
+general:
+
+  base_directory:
+    value: "."
+    type: "str"
+    help: >
+          Base directory for data and models. All the data that will be read and written will be done within this
+          directory.
+          If path is relative it will be appended to the package path.
+
+  dataset_directory:
+    value: "data/audios"
+    type: "str"
+    help: >
+          Base directory for audios. If the path is relative, it will be appended to the package path.
+
+
+#####################################################
+#  Options to customize the model
+#####################################################
+
+
+
+#####################################################
+#  Options about your dataset
+#####################################################
+
+
+
+#####################################################
+#  Options about your training routine
+#####################################################
+
+
+
+#####################################################
+#  Options about monitoring your training
+#####################################################
+
+
+
+#####################################################
+#  Options about your dataset image augmentation
+#####################################################
+
+

@@ -1,0 +1,11 @@
+# external requirements
+Sphinx
+python-dotenv>=0.5.1
+numpy>=1.14.1
+scipy>=0.19.1
+resampy>=0.2.1
+six>=1.10.0
+pandas>=0.24.2
+keras>=2.2.4
+h5py>=2.9.0
+werkzeug>=0.15.5
