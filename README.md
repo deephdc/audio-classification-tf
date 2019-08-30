@@ -23,14 +23,14 @@ You can find more information about it in the [DEEP Marketplace](https://marketp
 - It is a requirement to have [Tensorflow>=1.12.0 installed](https://www.tensorflow.org/install/pip) (either in gpu or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).   
 - This project has been tested in Ubuntu 18.04 with Python 3.6.5. Further package requirements are described in the `requirements.txt` file.
 
-To start using this framework run and download the [default weights](https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.xz):
+To start using this framework run and download the [default weights](https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz):
 
 ```bash
 git clone https://github.com/deephdc/audio-classification-tf
 cd audio-classification-tf
 pip install -e .
-curl -o ./models/default.tar.xz https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.xz
-cd models && tar -xf default.tar.xz && rm default.tar.xz 
+curl -o ./models/default.tar.gz https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz
+cd models && tar -zxvf default.tar.gz && rm default.tar.gz 
 ```
 
 To use this module with an API you have to install the [DEEPaaS](https://github.com/indigo-dc/DEEPaaS) package (temporarily, until `1.0` launching, you will have to use the `test-args` branch):
