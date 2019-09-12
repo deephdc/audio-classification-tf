@@ -7,7 +7,7 @@ DEEP Open Catalogue: Audio classifier
 
 **Project:** This work is part of the [DEEP Hybrid-DataCloud](https://deep-hybrid-datacloud.eu/) project that has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 777435.
 
-This is a plug-and-play tool to perform audio classifcation with Deep Learning. It allows the user to classify their samples of audio as well as training their own classifier for a custom problem. The classifier is currently [pretrained](models/default) on the 527 high-level classes from the [AudioSet](https://research.google.com/audioset/) dataset.
+This is a plug-and-play tool to perform audio classification with Deep Learning. It allows the user to classify their samples of audio as well as training their own classifier for a custom problem. The classifier is currently [pretrained](models/default) on the 527 high-level classes from the [AudioSet](https://research.google.com/audioset/) dataset.
 
 You can find more information about it in the [DEEP Marketplace](https://marketplace.deep-hybrid-datacloud.eu/).
 
