@@ -27,6 +27,7 @@ import pkg_resources
 import builtins
 import re
 import mimetypes
+from collections import OrderedDict
 
 import numpy as np
 import requests
@@ -160,7 +161,7 @@ def catch_localfile_error(file_list):
     if not file_list:
         raise BadRequest('Empty query')
 
-    # Error catch: Image format error
+    # Error catch: Data format error
     for f in file_list:
         extension = os.path.basename(f.filename).split('.')[-1]
         # extension = mimetypes.guess_extension(f.content_type)
@@ -205,11 +206,6 @@ def predict_data(args, merge=True):
     """
     Function to predict a local image
     """
-    #####FIXME: Remove after DEEPaaS upgrade
-    if type(args['files']) is not list:
-        args['files'] = [args['files']]
-    ########################################
-
     catch_localfile_error(args['files'])
 
     # Getting the predictions
@@ -323,49 +319,10 @@ def wikipedia_link(pred_lab):
 #         mount_nextcloud(paths.get_models_dir(), 'ncplants:/models')
 #     except Exception as e:
 #         print(e)
-#
-#
-# @catch_error
-# def get_train_args():
-#     """
-#     Returns a dict of dicts with the following structure to feed the deepaas API parser:
-#     { 'arg1' : {'default': '1',     #value must be a string (use json.dumps to convert Python objects)
-#                 'help': '',         #can be an empty string
-#                 'required': False   #bool
-#                 },
-#       'arg2' : {...
-#                 },
-#     ...
-#     }
-#     """
-#     train_args = {}
-#     default_conf = config.CONF
-#     for group, val in default_conf.items():
-#         for g_key, g_val in val.items():
-#             gg_keys = g_val.keys()
-#
-#             # Load optional keys
-#             help = g_val['help'] if ('help' in gg_keys) else ''
-#             type = getattr(builtins, g_val['type']) if ('type' in gg_keys) else None
-#             choices = g_val['choices'] if ('choices' in gg_keys) else None
-#
-#             # Additional info in help string
-#             help += '\n' + "Group name: **{}**".format(str(group))
-#             if choices: help += '\n' + "Choices: {}".format(str(choices))
-#             if type: help += '\n' + "Type: {}".format(g_val['type'])
-#
-#             opt_args = {'default': json.dumps(g_val['value']),
-#                         'help': help,
-#                         'required': False}
-#             # if type: opt_args['type'] = type # this breaks the submission because the json-dumping
-#             #                                     => I'll type-check args inside the train_fn
-#
-#             train_args[g_key] = opt_args
-#     return train_args
 
 
 @catch_error
-def get_test_args():
+def get_args(default_conf):
     """
     Returns a dict of dicts with the following structure to feed the deepaas API parser:
     { 'arg1' : {'default': '1',     #value must be a string (use json.dumps to convert Python objects)
@@ -377,6 +334,53 @@ def get_test_args():
     ...
     }
     """
+    args = OrderedDict()
+    for group, val in default_conf.items():
+        for g_key, g_val in val.items():
+            gg_keys = g_val.keys()
+
+            # Load optional keys
+            help = g_val['help'] if ('help' in gg_keys) else ''
+            type = getattr(builtins, g_val['type']) if ('type' in gg_keys) else None
+            choices = g_val['choices'] if ('choices' in gg_keys) else None
+
+            # Additional info in help string
+            help += '\n' + "<font color='#C5576B'> Group name: **{}**".format(str(group))
+            if choices:
+                help += '\n' + "Choices: {}".format(str(choices))
+            if type:
+                help += '\n' + "Type: {}".format(g_val['type'])
+            help += "</font>"
+
+            # Create arg dict
+            opt_args = {'default': json.dumps(g_val['value']),
+                        'help': help,
+                        'required': False}
+            if choices:
+                opt_args['choices'] = [json.dumps(i) for i in choices]
+            # if type:
+            #     opt_args['type'] = type # this breaks the submission because the json-dumping
+            #                               => I'll type-check args inside the test_fn
+
+            args[g_key] = opt_args
+    return args
+
+
+# @catch_error
+# def get_train_args():
+#
+#     default_conf = config.CONF
+#     default_conf = OrderedDict([('general', default_conf['general']),
+#                                 ('model', default_conf['model']),
+#                                 ('training', default_conf['training']),
+#                                 ('monitor', default_conf['monitor']),
+#                                 ('dataset', default_conf['dataset']),
+#                                 ('augmentation', default_conf['augmentation'])])
+#     return get_args(default_conf)
+
+
+@catch_error
+def get_test_args():
     return {}
 
 
@@ -385,7 +389,6 @@ def get_metadata():
     """
     Function to read metadata
     """
-
     module = __name__.split('.', 1)
 
     pkg = pkg_resources.get_distribution(module[0])
