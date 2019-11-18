@@ -1,0 +1,2 @@
+helicopters : 3 images in DB 
+southpark : 6 images in DB 

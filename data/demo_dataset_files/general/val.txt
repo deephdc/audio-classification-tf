@@ -1,0 +1,9 @@
+helicopters/heli-running1.wav 0
+southpark/102_bgfatass.wav 1
+southpark/102_clyde.wav 1
+southpark/102_bulkup.wav 1
+southpark/102_bitch.wav 1
+helicopters/heli-pass1.wav 0
+helicopters/heli-pass3.wav 0
+southpark/102_black.wav 1
+southpark/102_chefsong.wav 1

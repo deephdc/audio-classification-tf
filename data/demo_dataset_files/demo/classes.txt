@@ -1,0 +1,2 @@
+applause class
+arcade music class
