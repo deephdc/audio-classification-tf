@@ -86,7 +86,7 @@ class ModelWrapper():
         class_scores = output_tensor.eval(feed_dict={input_tensor: processed_embeddings}, session=self.session_classify)
         return class_scores
 
-    def _predict(self, wav_file, time_stamp):
+    def _predict(self, wav_file, time_stamp=0):
         """
         Driver function that performs all core tasks.
         Input args:
@@ -104,7 +104,7 @@ class ModelWrapper():
         preds = self.classifier_post_process(raw_preds[0])
         return preds
 
-    def classifier_pre_process(self, embeddings, time_stamp):
+    def classifier_pre_process(self, embeddings, time_stamp=0):
         """
         Helper function to make sure input to classifier the model is of standard size.
         * Clips/Crops audio clips embeddings to start at time_stamp if not default and throws error if invalid

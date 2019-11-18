@@ -15,7 +15,7 @@ from audioclas import config
 
 homedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-CONF = config.conf_dict()
+CONF = config.get_conf_dict()
 timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
 def get_timestamp():
@@ -30,12 +30,17 @@ def get_base_dir():
         return os.path.abspath(os.path.join(homedir, base_dir))
 
 
-def get_images_dir():
-    img_dir = CONF['general']['dataset_directory']
-    if os.path.isabs(img_dir):
-        return img_dir
+def get_dataset_dir():
+    dataset_dir = CONF['general']['dataset_directory']
+    if os.path.isabs(dataset_dir):
+        return dataset_dir
     else:
-        return os.path.abspath(os.path.join(homedir, img_dir))
+        return os.path.abspath(os.path.join(homedir, dataset_dir))
+
+
+def get_embeddings_dir():
+    upper_dir = os.path.dirname(get_dataset_dir())
+    return os.path.join(upper_dir, 'embeddings')
 
 
 def get_splits_dir():
@@ -76,7 +81,8 @@ def get_predictions_dir():
 
 def get_dirs():
     return {'base dir': get_base_dir(),
-            'images dir': get_images_dir(),
+            'dataset dir': get_dataset_dir(),
+            'embeddings dir': get_embeddings_dir(),
             'data splits dir': get_splits_dir(),
             'models_dir': get_models_dir(),
             'timestamped dir': get_timestamped_dir(),

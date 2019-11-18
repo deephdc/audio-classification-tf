@@ -20,7 +20,11 @@ You can find more information about it in the [DEEP Marketplace](https://marketp
 
 **Requirements**
  
-- It is a requirement to have [Tensorflow>=1.12.0 installed](https://www.tensorflow.org/install/pip) (either in gpu or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).   
+- To support a wide range of audio formats we need  to make use of the FFMPEG library. To install it in Linux please run:
+    ```bash
+    apt-get install ffmpeg libavcodec-extra
+    ```
+- It is a requirement to have [Tensorflow>=1.12.0 installed](https://www.tensorflow.org/install/pip) (either in gpu or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).
 - This project has been tested in Ubuntu 18.04 with Python 3.6.5. Further package requirements are described in the `requirements.txt` file.
 
 To start using this framework run and download the [default weights](https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz):
@@ -31,14 +35,6 @@ cd audio-classification-tf
 pip install -e .
 curl -o ./models/default.tar.gz https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz
 cd models && tar -zxvf default.tar.gz && rm default.tar.gz 
-```
-
-To use this module with an API you have to install the [DEEPaaS](https://github.com/indigo-dc/DEEPaaS) package (temporarily, until `1.0` launching, you will have to use the `test-args` branch):
-
-```bash
-git clone -b test-args https://github.com/indigo-dc/deepaas
-cd deepaas
-pip install -e .
 ```
 
 and run `deepaas-run --listen-ip 0.0.0.0`. Now open http://0.0.0.0:5000/ and look for the methods belonging to the `audioclas` module.
@@ -55,10 +51,36 @@ docker run -ti -p 5000:5000 deephdc/deep-oc-audio-classification-tf
 Now open http://0.0.0.0:5000/ and look for the methods belonging to the `audioclas` module.
 
 
-## Train an audio classifier [in progress :hourglass_flowing_sand:]
+## Train an audio classifier
 
 You can train your own audio classifier with your custom dataset. For that you have to:
 
+The first step to train your image classifier if to have the data correctly set up. 
+
+### 1.1 Prepare the audio files
+
+Put your images in the`./data/audios` folder. If you have your data somewhere else you can use that location by setting the `image_dir` parameter in the  `./etc/config.yaml` file.
+
+Please use a standard audio format (like `.mp3` or `.wav`). 
+
+### Prepare the data splits
+
+First you need add to the `./data/dataset_files` directory the following files:
+
+| *Mandatory files* | *Optional files*  | 
+|:-----------------------:|:---------------------:|
+|  `classes.txt`, `train.txt` |  `val.txt`, `test.txt`, `info.txt`|
+
+The `train.txt`, `val.txt` and `test.txt` files associate an audio name (or relative path) to a label number (that has to *start at zero*).
+The `classes.txt` file translates those label numbers to label names.
+Finally the `info.txt` allows you to provide information (like number of audio files in the database) about each class. This information will be shown when launching a webpage of the classifier.
+
+You can find examples of these files at  `./data/demo-dataset_files`.
+
+### Train the classifier
+
+Before training the classifier you can customize the default parameters of the configuration file. 
+Once you have customized the configuration parameters in the  `./etc/config.yaml` file you can launch the training running `./audioclas/train_runfile.py`. You can monitor the training status using Tensorboard.
 
 ## Test an audio classifier
 

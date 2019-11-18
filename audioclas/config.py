@@ -48,7 +48,8 @@ def check_conf(conf=CONF):
 
 check_conf()
 
-def conf_dict(conf=CONF):
+
+def get_conf_dict(conf=CONF):
     """
     Return configuration as dict
     """
@@ -59,7 +60,9 @@ def conf_dict(conf=CONF):
             conf_d[group][g_key] = g_val['value']
     return conf_d
 
-conf_d = conf_dict()
+
+conf_dict = get_conf_dict()
+
 
 def print_full_conf(conf=CONF):
     """
@@ -72,16 +75,16 @@ def print_full_conf(conf=CONF):
         for g_key, g_val in sorted(val.items()):
             print('{}'.format(g_key))
             for gg_key, gg_val in g_val.items():
-                print('{}{}'.format(' '*4, gg_key))
+                print('{}{}'.format(' ' * 4, gg_key))
                 body = '\n'.join(['\n'.join(textwrap.wrap(line, width=110, break_long_words=False,
                                                           replace_whitespace=False,
-                                                          initial_indent=' '*8, subsequent_indent=' '*8))
+                                                          initial_indent=' ' * 8, subsequent_indent=' ' * 8))
                                   for line in str(gg_val).splitlines() if line.strip() != ''])
                 print(body)
             print('\n')
 
-            
-def print_conf_table(conf=conf_d):
+
+def print_conf_table(conf=conf_dict):
     """
     Print configuration parameters in a table
     """

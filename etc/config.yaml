@@ -31,32 +31,126 @@ general:
           Base directory for audios. If the path is relative, it will be appended to the package path.
 
 
+
 #####################################################
 #  Options to customize the model
 #####################################################
 
+model:
 
-
-#####################################################
-#  Options about your dataset
-#####################################################
-
+  num_classes:
+    value:
+    type: "int"
+    range: [1, None]
+    help: >
+          Total number of possible output classes. If not provided, we will use the max label number from y_train.
 
 
 #####################################################
 #  Options about your training routine
 #####################################################
 
+training:
 
+  mode:
+    value: "normal"
+    type: "str"
+    choices: ['normal', 'fast']
+    help: >
+      Mode for the training routine. In the `fast` mode we do not training the lower layers convolutional layers and
+      only train the upper dense layer. The gain in training speed (~25% faster?) comes at the cost of a somewhat lower
+      accuracy, because the weights of the convolutional layers will be the ones from the Imagenet pretraining and thus
+      not finetuned to our dataset.
+
+  initial_lr:
+    value: 0.001
+    type: "float"
+    help: >
+          Initial learning rate.
+
+  batch_size:
+    value: 16
+    type: "int"
+    range: [1, 64]
+    help: >
+          Batchsize to use during training. If your model has a large number of classes (>1000) you might need to decrease
+          your batchsize so that the model still fits in the GPU.
+
+  epochs:
+    value: 15
+    type: "int"
+    range: [0, None]
+    help: >
+          Number of epochs to use for training.
+
+  ckpt_freq:
+    value:
+    type: "float"
+    range: [0, 1]
+    help: >
+          Frequency of the checkpoints (Float between 0 and 1). If None there will be no checkpoints saved. If 0.0 there
+          will be 1 checkpoint per epoch. For example 0.1 means there will be 10 ckpts during the training.
+
+  lr_schedule_mode:
+    value: "step"
+    type: "str"
+    choices: ['step']
+    help: >
+          Mode for the learning rate schedule computation.
+
+  lr_step_decay:
+    value: 0.1
+    type: "float"
+    range: [0, 1]
+    help: >
+          Amount to decay the lr. Only relevant if lr_schedule_mode is set to 'step'
+
+  lr_step_schedule:
+    value: [0.7, 0.9]
+    type: "list"
+    item_type: float
+    help: >
+          List of the fraction of the total time at which apply a decay. For example [0.7, 0.9] means that the lr
+          will be decay at 70% and 90% of total number of epochs.
+
+  l2_reg:
+    value: 0.0001
+    type: "float"
+    help: >
+          L2 regularizer for the two last Dense layers.
+
+  recompute_embeddings:
+    value: True
+    type: "bool"
+    help: >
+          Whether to recompute the embeddings.
+
+  use_validation:
+    value: True
+    type: "bool"
+    help: >
+          Whether to use or not validation. If True you have to provide a `val.txt` file in the `splits` directory.
+
+  use_early_stopping:
+    value: False
+    type: "bool"
+    help: >
+          Whether to use or not early stopping. If True you have to provide a `val.txt` file in the `splits` directory.
 
 #####################################################
 #  Options about monitoring your training
 #####################################################
 
+monitor:
 
+  use_tensorboard:
+    value: True
+    type: "bool"
+    help: >
+          Use tensorboard to visualize the relevant metrics during the training process.
 
-#####################################################
-#  Options about your dataset image augmentation
-#####################################################
-
-
+  use_remote:
+    value: False
+    type: "bool"
+    help: >
+          Forward the logs through a defined port if executing in a remote machine.

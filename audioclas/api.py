@@ -20,6 +20,7 @@ gevent, uwsgi.
 
 import json
 import os
+import io
 import tempfile
 import warnings
 from datetime import datetime
@@ -36,7 +37,10 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 
+from audioclas import config, paths
+from audioclas.train import train_fn
 from audioclas.model import ModelWrapper
+from audioclas.data_utils import bytes_to_PCM_16bits, mount_nextcloud
 
 
 # # Mount NextCloud folders (if NextCloud is available)
@@ -52,7 +56,6 @@ loaded = False
 graph, model, conf, class_names, class_info = None, None, None, None, None
 
 # # Additional parameters
-allowed_extensions = set(['wav']) # allow only certain file extensions
 top_K = 5  # number of top classes predictions to return
 
 model_wrapper = ModelWrapper()
@@ -149,25 +152,19 @@ def catch_url_error(url_list):
             raise BadRequest("""Failed url connection:
             Check you wrote the url address correctly.""")
 
-        # Error catch: Wrong formatted urls
-        if url_type != 'audio/x-wav':
-            raise BadRequest("""Url audio format error:
-            Some urls were not in any of the allowed formats ({}).""".format(allowed_extensions))
+        # # Error catch: Wrong formatted urls
+        # if url_type.split('/')[0] != 'audio':
+        #     raise BadRequest("""Input should be an audio file""")
 
 
 def catch_localfile_error(file_list):
+    """
+    No need mto check for file formats because we now support all the formats supported by FFMPEG
+    """
 
     # Error catch: Empty query
     if not file_list:
         raise BadRequest('Empty query')
-
-    # Error catch: Data format error
-    for f in file_list:
-        extension = os.path.basename(f.filename).split('.')[-1]
-        # extension = mimetypes.guess_extension(f.content_type)
-        if extension not in allowed_extensions:
-            raise BadRequest("""Local audio format error:
-            At least one file is not in a standard audio format ({}).""".format(allowed_extensions))
 
 
 @catch_error
@@ -182,8 +179,10 @@ def predict_url(args, merge=True):
     resp = requests.get(url, stream=True, allow_redirects=True)
 
     # Getting the predictions
+    data_bytes = resp.content
+    data_bytes = bytes_to_PCM_16bits(io.BytesIO(data_bytes))
     try:
-        preds = model_wrapper._predict(wav_file=resp.content,
+        preds = model_wrapper._predict(wav_file=data_bytes,
                                        time_stamp=0)
     except ValueError:
         raise BadRequest('Invalid start time: value outside audio clip')
@@ -209,8 +208,10 @@ def predict_data(args, merge=True):
     catch_localfile_error(args['files'])
 
     # Getting the predictions
+    data_bytes = args['files'][0].read()
+    data_bytes = bytes_to_PCM_16bits(io.BytesIO(data_bytes))
     try:
-        preds = model_wrapper._predict(wav_file=args['files'][0].read(),
+        preds = model_wrapper._predict(wav_file=data_bytes,
                                        time_stamp=0)
     except ValueError:
         raise BadRequest('Invalid start time: value outside audio clip')
@@ -283,42 +284,42 @@ def wikipedia_link(pred_lab):
     return link
 
 
-# @catch_error
-# def train(user_conf):
-#     """
-#     Parameters
-#     ----------
-#     user_conf : dict
-#         Json dict (created with json.dumps) with the user's configuration parameters that will replace the defaults.
-#         Must be loaded with json.loads()
-#         For example:
-#             user_conf={'num_classes': 'null', 'lr_step_decay': '0.1', 'lr_step_schedule': '[0.7, 0.9]', 'use_early_stopping': 'false'}
-#     """
-#     CONF = config.CONF
-#
-#     # Update the conf with the user input
-#     for group, val in sorted(CONF.items()):
-#         for g_key, g_val in sorted(val.items()):
-#             g_val['value'] = json.loads(user_conf[g_key])
-#
-#     # Check the configuration
-#     try:
-#         config.check_conf(conf=CONF)
-#     except Exception as e:
-#         raise BadRequest(e)
-#
-#     CONF = config.conf_dict(conf=CONF)
-#     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-#
-#     config.print_conf_table(CONF)
-#     K.clear_session() # remove the model loaded for prediction
-#     train_fn(TIMESTAMP=timestamp, CONF=CONF)
-#
-#     # Sync with NextCloud folders (if NextCloud is available)
-#     try:
-#         mount_nextcloud(paths.get_models_dir(), 'ncplants:/models')
-#     except Exception as e:
-#         print(e)
+@catch_error
+def train(user_conf):
+    """
+    Parameters
+    ----------
+    user_conf : dict
+        Json dict (created with json.dumps) with the user's configuration parameters that will replace the defaults.
+        Must be loaded with json.loads()
+        For example:
+            user_conf={'num_classes': 'null', 'lr_step_decay': '0.1', 'lr_step_schedule': '[0.7, 0.9]', 'use_early_stopping': 'false'}
+    """
+    CONF = config.CONF
+
+    # Update the conf with the user input
+    for group, val in sorted(CONF.items()):
+        for g_key, g_val in sorted(val.items()):
+            g_val['value'] = json.loads(user_conf[g_key])
+
+    # Check the configuration
+    try:
+        config.check_conf(conf=CONF)
+    except Exception as e:
+        raise BadRequest(e)
+
+    CONF = config.conf_dict(conf=CONF)
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+
+    config.print_conf_table(CONF)
+    K.clear_session() # remove the model loaded for prediction
+    train_fn(TIMESTAMP=timestamp, CONF=CONF)
+
+    # Sync with NextCloud folders (if NextCloud is available)
+    try:
+        mount_nextcloud(paths.get_models_dir(), 'ncplants:/models')
+    except Exception as e:
+        print(e)
 
 
 @catch_error
