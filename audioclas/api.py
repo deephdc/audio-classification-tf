@@ -32,10 +32,10 @@ from collections import OrderedDict
 
 import numpy as np
 import requests
-from werkzeug.exceptions import BadRequest
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
+from webargs import fields
 
 from audioclas import config, paths
 from audioclas.train import train_fn
@@ -128,28 +128,20 @@ model_wrapper = ModelWrapper()
 #     # Set the model as loaded
 #     loaded = True
 
-def catch_error(f):
-    def wrap(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except Exception as e:
-            raise BadRequest(e)
-    return wrap
-
 
 def catch_url_error(url_list):
 
     # Error catch: Empty query
     if not url_list:
-        raise BadRequest('Empty query')
+        raise ValueError('Empty query')
 
     for i in url_list:
 
         # Error catch: Inexistent url
         try:
             url_type = requests.head(i).headers.get('content-type')
-        except:
-            raise BadRequest("""Failed url connection:
+        except Exception:
+            raise ValueError("""Failed url connection:
             Check you wrote the url address correctly.""")
 
         # # Error catch: Wrong formatted urls
@@ -164,10 +156,23 @@ def catch_localfile_error(file_list):
 
     # Error catch: Empty query
     if not file_list:
-        raise BadRequest('Empty query')
+        raise ValueError('Empty query')
 
 
-@catch_error
+def predict(**args):
+
+    if (not any([args['urls'], args['files']]) or
+            all([args['urls'], args['files']])):
+        raise Exception("You must provide either 'url' or 'data' in the payload")
+
+    if args['files']:
+        args['files'] = [args['files']]  # patch until list is available
+        return predict_data(args)
+    elif args['urls']:
+        args['urls'] = [args['urls']]  # patch until list is available
+        return predict_url(args)
+
+
 def predict_url(args, merge=True):
     """
     Function to predict an url
@@ -185,7 +190,7 @@ def predict_url(args, merge=True):
         preds = model_wrapper._predict(wav_file=data_bytes,
                                        time_stamp=0)
     except ValueError:
-        raise BadRequest('Invalid start time: value outside audio clip')
+        raise ValueError('Invalid start time: value outside audio clip')
 
     # Aligning the predictions to the required API format
     label_preds = [{'label_id': p[0], 'label': p[1], 'probability': p[2]} for p in preds]
@@ -200,7 +205,6 @@ def predict_url(args, merge=True):
     return format_prediction(labels, probs)
 
 
-@catch_error
 def predict_data(args, merge=True):
     """
     Function to predict a local image
@@ -208,13 +212,13 @@ def predict_data(args, merge=True):
     catch_localfile_error(args['files'])
 
     # Getting the predictions
-    data_bytes = args['files'][0].read()
-    data_bytes = bytes_to_PCM_16bits(io.BytesIO(data_bytes))
+    fpath = args['files'][0].filename
+    data_bytes = bytes_to_PCM_16bits(fpath)
     try:
         preds = model_wrapper._predict(wav_file=data_bytes,
                                        time_stamp=0)
     except ValueError:
-        raise BadRequest('Invalid start time: value outside audio clip')
+        raise ValueError('Invalid start time: value outside audio clip')
 
     # Aligning the predictions to the required API format
     label_preds = [{'label_id': p[0], 'label': p[1], 'probability': p[2]} for p in preds]
@@ -284,8 +288,7 @@ def wikipedia_link(pred_lab):
     return link
 
 
-@catch_error
-def train(user_conf):
+def train(**user_conf):
     """
     Parameters
     ----------
@@ -306,7 +309,7 @@ def train(user_conf):
     try:
         config.check_conf(conf=CONF)
     except Exception as e:
-        raise BadRequest(e)
+        raise Exception(e)
 
     CONF = config.conf_dict(conf=CONF)
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
@@ -322,20 +325,10 @@ def train(user_conf):
         print(e)
 
 
-@catch_error
-def get_args(default_conf):
+def populate_parser(parser, default_conf):
     """
-    Returns a dict of dicts with the following structure to feed the deepaas API parser:
-    { 'arg1' : {'default': '1',     #value must be a string (use json.dumps to convert Python objects)
-                'help': '',         #can be an empty string
-                'required': False   #bool
-                },
-      'arg2' : {...
-                },
-    ...
-    }
+    Fill a parser with arguments
     """
-    args = OrderedDict()
     for group, val in default_conf.items():
         for g_key, g_val in val.items():
             gg_keys = g_val.keys()
@@ -363,11 +356,19 @@ def get_args(default_conf):
             #     opt_args['type'] = type # this breaks the submission because the json-dumping
             #                               => I'll type-check args inside the test_fn
 
-            args[g_key] = opt_args
-    return args
+            parser[g_key] = fields.Str(required=False,
+                                       missing=opt_args["default"],
+                                       description=opt_args["help"])
+            # add choices --> choices=None if not choices else opt_args["choices"],
+
+            # parser[g_key] = fields.Str(required=False,
+            #                            missing=opt_args["default"],
+            #                            description=opt_args["help"],
+            #                            enum=None if not choices else opt_args["choices"])
+
+    return parser
 
 
-# @catch_error
 # def get_train_args():
 #
 #     default_conf = config.CONF
@@ -380,12 +381,26 @@ def get_args(default_conf):
 #     return get_args(default_conf)
 
 
-@catch_error
-def get_test_args():
-    return {}
+def get_predict_args():
+    parser = OrderedDict()
+
+    # Add data and url fields
+    parser['files'] = fields.Field(required=False,
+                                   missing=None,
+                                   type="file",
+                                   data_key="data",
+                                   location="form",
+                                   description="Select the audio file you want to classify.")
+
+    parser['urls'] = fields.Url(required=False,
+                                missing=None,
+                                description="Select an URL of the audio file you want to classify.")
+
+    # missing action="append" --> append more than one url
+
+    return parser
 
 
-@catch_error
 def get_metadata(distribution_name='audio-classification-tf'):
     """
     Function to read metadata
