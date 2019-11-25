@@ -347,24 +347,14 @@ def populate_parser(parser, default_conf):
             help += "</font>"
 
             # Create arg dict
-            opt_args = {'default': json.dumps(g_val['value']),
-                        'help': help,
-                        'required': False}
+            opt_args = {'missing': json.dumps(g_val['value']),
+                        'description': help,
+                        'required': False,
+                        }
             if choices:
-                opt_args['choices'] = [json.dumps(i) for i in choices]
-            # if type:
-            #     opt_args['type'] = type # this breaks the submission because the json-dumping
-            #                               => I'll type-check args inside the test_fn
+                opt_args['enum'] = [json.dumps(i) for i in choices]
 
-            parser[g_key] = fields.Str(required=False,
-                                       missing=opt_args["default"],
-                                       description=opt_args["help"])
-            # add choices --> choices=None if not choices else opt_args["choices"],
-
-            # parser[g_key] = fields.Str(required=False,
-            #                            missing=opt_args["default"],
-            #                            description=opt_args["help"],
-            #                            enum=None if not choices else opt_args["choices"])
+            parser[g_key] = fields.Str(**opt_args)
 
     return parser
 
