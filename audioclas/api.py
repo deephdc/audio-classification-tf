@@ -58,7 +58,18 @@ graph, model, conf, class_names, class_info = None, None, None, None, None
 # # Additional parameters
 top_K = 5  # number of top classes predictions to return
 
-model_wrapper = ModelWrapper()
+
+model_wrapper = None
+
+
+def load_inference_model():
+    global model_wrapper
+
+    # Clear the previous loaded model
+    K.clear_session()
+
+    # Load new model
+    model_wrapper = ModelWrapper()
 
 
 # def load_inference_model():
@@ -159,6 +170,10 @@ def catch_localfile_error(file_list):
         raise ValueError('Empty query')
 
 
+def warm():
+    load_inference_model()
+
+
 def predict(**args):
 
     if (not any([args['urls'], args['files']]) or
@@ -178,6 +193,10 @@ def predict_url(args, merge=True):
     Function to predict an url
     """
     catch_url_error(args['urls'])
+
+    # Load the model if needed
+    if model_wrapper is None:
+        load_inference_model()
 
     # Download wav
     url = args['urls'][0]
@@ -210,6 +229,10 @@ def predict_data(args, merge=True):
     Function to predict a local image
     """
     catch_localfile_error(args['files'])
+
+    # Load the model if needed
+    if model_wrapper is None:
+        load_inference_model()
 
     # Getting the predictions
     fpath = args['files'][0].filename
