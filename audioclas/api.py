@@ -36,6 +36,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 from webargs import fields
+from aiohttp.web import HTTPBadRequest
 
 from audioclas import config, paths
 from audioclas.train import train_fn
@@ -140,6 +141,15 @@ def load_inference_model():
 #     loaded = True
 
 
+def catch_error(f):
+    def wrap(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            raise HTTPBadRequest(reason=e)
+    return wrap
+
+
 def catch_url_error(url_list):
 
     # Error catch: Empty query
@@ -152,8 +162,8 @@ def catch_url_error(url_list):
         try:
             url_type = requests.head(i).headers.get('content-type')
         except Exception:
-            raise ValueError("""Failed url connection:
-            Check you wrote the url address correctly.""")
+            raise ValueError("Failed url connection: "
+                             "Check you wrote the url address correctly.")
 
         # # Error catch: Wrong formatted urls
         # if url_type.split('/')[0] != 'audio':
@@ -162,7 +172,7 @@ def catch_url_error(url_list):
 
 def catch_localfile_error(file_list):
     """
-    No need mto check for file formats because we now support all the formats supported by FFMPEG
+    No need to check for file formats because we now support all the formats supported by FFMPEG
     """
 
     # Error catch: Empty query
@@ -174,6 +184,7 @@ def warm():
     load_inference_model()
 
 
+@catch_error
 def predict(**args):
 
     if (not any([args['urls'], args['files']]) or
@@ -311,6 +322,7 @@ def wikipedia_link(pred_lab):
     return link
 
 
+@catch_error
 def train(**user_conf):
     """
     Parameters
