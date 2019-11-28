@@ -3,8 +3,11 @@ Sphinx
 python-dotenv>=0.5.1
 numpy>=1.14.1
 scipy>=0.19.1
+tqdm>=4.25.0
 resampy>=0.2.1
+PyYAML>=3.12
 six>=1.10.0
 pandas>=0.24.2
 werkzeug>=0.15.5
-pydub
+pydub>=0.23.1
+deepaas
