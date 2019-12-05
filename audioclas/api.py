@@ -426,7 +426,7 @@ def get_predict_args():
     return parser
 
 
-def get_metadata(distribution_name='audio-classification-tf'):
+def get_metadata(distribution_name='audioclas'):
     """
     Function to read metadata
     """
