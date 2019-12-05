@@ -322,7 +322,6 @@ def wikipedia_link(pred_lab):
     return link
 
 
-@catch_error
 def train(**user_conf):
     """
     Parameters
