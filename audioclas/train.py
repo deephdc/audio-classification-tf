@@ -27,6 +27,7 @@ import os
 import time
 import json
 from datetime import datetime
+import warnings
 
 import numpy as np
 from tqdm import tqdm
@@ -35,16 +36,9 @@ import tensorflow.keras.backend as K
 
 from audioclas import paths, config, utils, model_utils
 from audioclas.model import ModelWrapper
-from audioclas.data_utils import load_data_splits, load_class_names, data_sequence, generate_embeddings, file_to_PCM_16bits
+from audioclas.data_utils import load_data_splits, load_class_names, data_sequence, generate_embeddings,\
+    file_to_PCM_16bits, create_embeddings_names, json_friendly
 from audioclas.optimizers import customAdam
-
-#TODO list
-# Add support for compressed WAV files
-# https://github.com/beetbox/audioread
-
-# https://pythonbasics.org/convert-mp3-to-wav/
-# https://stackoverflow.com/questions/3049572/how-to-convert-mp3-to-wav-in-python
-# http://pydub.com/
 
 # Set Tensorflow verbosity logs
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -88,38 +82,47 @@ def train_fn(TIMESTAMP, CONF):
     if CONF['model']['num_classes'] is None:
         CONF['model']['num_classes'] = len(class_names)
 
-    assert CONF['model']['num_classes'] >= np.amax(y_train), "Your train.txt file has more categories than those defined in classes.txt"
+    assert CONF['model']['num_classes'] >= np.amax(y_train),\
+        "Your train.txt file has more categories than those defined in classes.txt"
     if CONF['training']['use_validation']:
-        assert CONF['model']['num_classes'] >= np.amax(y_val), "Your val.txt file has more categories than those defined in classes.txt"
+        assert CONF['model']['num_classes'] >= np.amax(y_val),\
+            "Your val.txt file has more categories than those defined in classes.txt"
 
-    # # Transform the training data to scipy-compatible 16-bit
-    # print('Transforming inputs to 16-bits ...')
-    # for p in tqdm(X_train):
-    #     file_to_PCM_16bits(p)
-    # if CONF['training']['use_validation']:
-    #     for p in tqdm(X_val):
-    #         file_to_PCM_16bits(p)
+    # Transform the training data to scipy-compatible 16-bit
+    if CONF['preprocessing']['files_to_PCM']:
+        print('Transforming inputs to PCM 16-bits ...')
+        for p in tqdm(X_train):
+            file_to_PCM_16bits(p)
+        if CONF['training']['use_validation']:
+            for p in tqdm(X_val):
+                file_to_PCM_16bits(p)
 
-    # Empty embeddings dir if needed
-    print('Generating embeddings ...')
-    embed_dir = paths.get_embeddings_dir()
-    if CONF['training']['recompute_embeddings']:
+    # Create model wrapper
+    model_wrap = ModelWrapper()
+
+    # Generating new embeddings if needed
+    if CONF['preprocessing']['compute_embeddings']:
+        print('Clearing old embeddings ...')
+        embed_dir = paths.get_embeddings_dir()
         for f in os.listdir(embed_dir):
             os.remove(os.path.join(embed_dir, f))
 
-    # Generate embeddings
-    model_wrap = ModelWrapper()
-    X_train = generate_embeddings(model_wrap=model_wrap,
-                                  file_list=X_train,
-                                  overwrite=CONF['training']['recompute_embeddings'])
-    if CONF['training']['use_validation']:
-        X_val = generate_embeddings(model_wrap=model_wrap,
-                                    file_list=X_val,
-                                    overwrite=CONF['training']['recompute_embeddings'])
-        if len(X_train) + len(X_val) != len(set(X_train.tolist() + X_val.tolist())):
-            raise Exception('File names are repeated between training and validation')
+        print("Generating new embeddings ...")
+        X_train = generate_embeddings(model_wrap=model_wrap,
+                                      file_list=X_train)
+        if CONF['training']['use_validation']:
+            X_val = generate_embeddings(model_wrap=model_wrap,
+                                        file_list=X_val)
 
-    #Create data generator for train and val sets
+    else:
+        if not X_train[0].endswith('.npy'):
+            warnings.warn("If you do not compute the embeddings your train/val.txt should point to the embeddings .npy"
+                          " files. Trying to generate the embeddings names on your behalf.")
+            X_train = create_embeddings_names(X_train)
+            if CONF['training']['use_validation']:
+                X_val = create_embeddings_names(X_val)
+
+    # Create data generator for train and val sets
     train_gen = data_sequence(X_train, y_train,
                               batch_size=CONF['training']['batch_size'],
                               num_classes=CONF['model']['num_classes'])
@@ -176,6 +179,7 @@ def train_fn(TIMESTAMP, CONF):
              'training time (s)': round(time.time()-t0, 2),
              'timestamp': TIMESTAMP}
     stats.update(history.history)
+    stats = json_friendly(stats)
     stats_dir = paths.get_stats_dir()
     with open(os.path.join(stats_dir, 'stats.json'), 'w') as outfile:
         json.dump(stats, outfile, sort_keys=True, indent=4)
@@ -199,9 +203,20 @@ if __name__ == '__main__':
     CONF = config.get_conf_dict()
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
 
-    ################
-    # CONF['general']['dataset_directory'] = '/home/ignacio/audio_classifier/audio-classification-tf/data/samples'
-    CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/audio/general/audio_files_16-bits'
+    # ################ demo dataset
+    # # CONF['general']['dataset_directory'] = '/home/ignacio/audio_classifier/audio-classification-tf/data/samples'
+    # # CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/audio/general/audio_files_16-bits'
+    # CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/audio/general/embeddings'
+    # CONF['preprocessing']['compute_embeddings'] = False
+    # CONF['preprocessing']['files_to_PCM'] = False
+    # CONF['training']['epochs'] = 2
+    # ################
+
+    ################ xenocanto
+    CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/xenocanto_embeddings'
+    CONF['preprocessing']['compute_embeddings'] = False
+    CONF['preprocessing']['files_to_PCM'] = False
+    CONF['training']['epochs'] = 30
     ################
 
     train_fn(TIMESTAMP=timestamp, CONF=CONF)

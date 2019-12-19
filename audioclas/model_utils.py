@@ -78,11 +78,6 @@ def save_to_pb(keras_model, export_path):
 def export_h5_to_pb(path_to_h5, export_path):
     """
     Transform Keras model to protobuf
-
-    Parameters
-    ----------
-    path_to_h5
-    export_path
     """
     model = load_model(path_to_h5)
     save_to_pb(model, export_path)

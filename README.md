@@ -61,7 +61,7 @@ The first step to train your image classifier if to have the data correctly set 
 
 Put your images in the`./data/audios` folder. If you have your data somewhere else you can use that location by setting the `image_dir` parameter in the  `./etc/config.yaml` file.
 
-Please use a standard audio format (like `.mp3` or `.wav`). 
+Please use a standard audio format (like `.mp3` or `.wav`). Audio files must last more than 1s.
 
 ### Prepare the data splits
 
@@ -81,6 +81,8 @@ You can find examples of these files at  `./data/demo-dataset_files`.
 
 Before training the classifier you can customize the default parameters of the configuration file. 
 Once you have customized the configuration parameters in the  `./etc/config.yaml` file you can launch the training running `./audioclas/train_runfile.py`. You can monitor the training status using Tensorboard.
+
+For training you have to make sure all your audios have the same duration so that the embeddings arrays will have the same shape and can be merged in the same batch. For examples a 10.8s audio will have an embeddings shape of ``(10, 128)`` while a 5.2s audio will have a shape of ``(5, 128)`` and won't be possible to use in the same batch. So if you want to use a shape of ``(10, 128)`` you have to make sure that all your audio are in between 10 and 11s.
 
 ## Test an audio classifier
 
