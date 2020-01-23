@@ -18,18 +18,20 @@ The fix done (using tf.get_default_graph()) will probably not be valid for stand
 gevent, uwsgi.
 """
 
-import json
-import os
-import io
-import tempfile
-import warnings
-from datetime import datetime
-import pkg_resources
 import builtins
-import re
-import mimetypes
 from collections import OrderedDict
+from datetime import datetime
+import json
+import magic
+import mimetypes
+import os
+import pkg_resources
+import random
+import re
+import string
+from urllib.request import urlretrieve
 
+from deepaas.model.v2.wrapper import UploadedFile
 import numpy as np
 import requests
 import tensorflow as tf
@@ -38,7 +40,8 @@ from tensorflow.keras import backend as K
 from webargs import fields
 from aiohttp.web import HTTPBadRequest
 
-from audioclas import config, paths
+
+from audioclas import config, paths, misc
 from audioclas.train import train_fn
 from audioclas.model import ModelWrapper
 from audioclas.data_utils import bytes_to_PCM_16bits, mount_nextcloud
@@ -61,6 +64,7 @@ top_K = 5  # number of top classes predictions to return
 
 
 model_wrapper = None
+compressed_extensions = ['zip', 'tar', 'bz2', 'tb2', 'tbz', 'tbz2', 'gz', 'tgz', 'lz', 'lzma', 'tlz', 'xz', 'txz', 'Z', 'tZ']
 
 
 def load_inference_model():
@@ -199,43 +203,25 @@ def predict(**args):
         return predict_url(args)
 
 
-def predict_url(args, merge=True):
+def predict_url(args):
     """
     Function to predict an url
     """
     catch_url_error(args['urls'])
 
-    # Load the model if needed
-    if model_wrapper is None:
-        load_inference_model()
+    # Download files
+    args['files'] = []
+    for url in args['urls']:
+        fname = ''.join(random.choices(string.ascii_lowercase + string.digits, k=15))
+        fpath = os.path.join('/tmp', fname)
+        urlretrieve(url, fpath)
+        f = UploadedFile(name='data', filename=fpath, content_type=magic.from_file(fpath, mime=True))
+        args['files'].append(f)
 
-    # Download wav
-    url = args['urls'][0]
-    resp = requests.get(url, stream=True, allow_redirects=True)
-
-    # Getting the predictions
-    data_bytes = resp.content
-    data_bytes = bytes_to_PCM_16bits(io.BytesIO(data_bytes))
-    try:
-        preds = model_wrapper._predict(wav_file=data_bytes,
-                                       time_stamp=0)
-    except ValueError:
-        raise ValueError('Invalid start time: value outside audio clip')
-
-    # Aligning the predictions to the required API format
-    label_preds = [{'label_id': p[0], 'label': p[1], 'probability': p[2]} for p in preds]
-
-    # # Filter list
-    # if args['filter'] is not None and any(x.strip() != '' for x in args['filter']):
-    #     label_preds = [x for x in label_preds if x['label'] in args['filter']]
-
-    labels = [i['label'] for i in label_preds]
-    probs = [i['probability'] for i in label_preds]
-
-    return format_prediction(labels, probs)
+    return predict_data(args)
 
 
-def predict_data(args, merge=True):
+def predict_data(args):
     """
     Function to predict a local image
     """
@@ -245,8 +231,33 @@ def predict_data(args, merge=True):
     if model_wrapper is None:
         load_inference_model()
 
+    # Unpack if needed
+    file_format = mimetypes.guess_extension(args['files'][0].content_type)[1:]
+    if file_format in compressed_extensions:
+        output_folder = os.path.join('/tmp', os.path.basename(args['files'][0].filename)).split('.')[0] + '_decomp'
+        misc.open_compressed(byte_stream=open(args['files'][0].filename, 'rb'),
+                             file_format=file_format,
+                             output_folder=output_folder)
+        filenames = misc.find_audiofiles(folder_path=output_folder)
+    else:
+        filenames = [f.filename for f in args['files']]
+
     # Getting the predictions
-    fpath = args['files'][0].filename
+    outputs = []
+    for fname in filenames:
+        try:
+            tmp = predict_audio(fpath=fname)
+        except Exception as e:
+            print(e)
+            tmp = {'title': fname,
+                   'error': str(e)}
+        outputs.append(tmp)
+
+    return outputs
+
+
+def predict_audio(fpath):
+
     data_bytes = bytes_to_PCM_16bits(fpath)
     try:
         preds = model_wrapper._predict(wav_file=data_bytes,
@@ -254,53 +265,17 @@ def predict_data(args, merge=True):
     except ValueError:
         raise ValueError('Invalid start time: value outside audio clip')
 
-    # Aligning the predictions to the required API format
-    label_preds = [{'label_id': p[0], 'label': p[1], 'probability': p[2]} for p in preds]
+    # Formatting the predictions to the required API format
+    out = {'title': os.path.basename(fpath),
+           'label_ids': [p[0] for p in preds],
+           'labels': [p[1] for p in preds],
+           'probabilities': [float(p[2]) for p in preds],
+           'links': {'Google Images': [image_link(p[1]) for p in preds],
+                     'Wikipedia': [wikipedia_link(p[1]) for p in preds]
+                     }
+           }
 
-    # # Filter list
-    # if args['filter'] is not None and any(x.strip() != '' for x in args['filter']):
-    #     label_preds = [x for x in label_preds if x['label'] in args['filter']]
-
-    labels = [i['label'] for i in label_preds]
-    probs = [i['probability'] for i in label_preds]
-
-    # if not loaded:
-    #     load_inference_model()
-    # with graph.as_default():
-    #     pred_lab, pred_prob = predict(model=model,
-    #                                   X=filenames,
-    #                                   conf=conf,
-    #                                   top_K=top_K,
-    #                                   filemode='local',
-    #                                   merge=merge)
-    #
-    # if merge:
-    #     pred_lab, pred_prob = np.squeeze(pred_lab), np.squeeze(pred_prob)
-
-    return format_prediction(labels, probs)
-
-
-def format_prediction(labels, probabilities):
-    d = {
-        "status": "ok",
-         "predictions": [],
-    }
-
-    for label_id, prob in zip(labels, probabilities):
-        name = label_id #class_names[label_id]
-
-        pred = {
-            # "label_id": int(label_id),
-            "label": name,
-            "probability": float(prob),
-            "info": {
-                "links": {'Google images': image_link(name),
-                          'Wikipedia': wikipedia_link(name)}#,
-                # 'metadata': class_info[label_id],
-            },
-        }
-        d["predictions"].append(pred)
-    return d
+    return out
 
 
 def image_link(pred_lab):
