@@ -24,7 +24,7 @@ You can find more information about it in the [DEEP Marketplace](https://marketp
     ```bash
     apt-get install ffmpeg libavcodec-extra
     ```
-- It is a requirement to have [Tensorflow>=1.12.0 installed](https://www.tensorflow.org/install/pip) (either in gpu or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).
+- It is a requirement to have [Tensorflow>=1.14.0 installed](https://www.tensorflow.org/install/pip) (either in gpu or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).
 - This project has been tested in Ubuntu 18.04 with Python 3.6.5. Further package requirements are described in the `requirements.txt` file.
 
 To start using this framework run and download the [default weights](https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz):
@@ -37,7 +37,7 @@ curl -o ./models/default.tar.gz https://cephrgw01.ifca.es:8080/swift/v1/audio-cl
 cd models && tar -zxvf default.tar.gz && rm default.tar.gz 
 ```
 
-and run `deepaas-run --listen-ip 0.0.0.0`. Now open http://0.0.0.0:5000/ and look for the methods belonging to the `audioclas` module.
+and run `deepaas-run --listen-ip 0.0.0.0`. Now open http://0.0.0.0:5000/ui and look for the methods belonging to the `audioclas` module.
 
 ### Docker installation
 
@@ -45,10 +45,10 @@ We have also prepared a ready-to-use [Docker container](https://github.com/deeph
 
 ```bash
 docker search deephdc
-docker run -ti -p 5000:5000 deephdc/deep-oc-audio-classification-tf
+docker run -ti -p 5000:5000 -p 6006:6006 -p 8888:8888 deephdc/deep-oc-audio-classification-tf
 ```
 
-Now open http://0.0.0.0:5000/ and look for the methods belonging to the `audioclas` module.
+Now open http://0.0.0.0:5000/ui and look for the methods belonging to the `audioclas` module.
 
 
 ## Train an audio classifier
