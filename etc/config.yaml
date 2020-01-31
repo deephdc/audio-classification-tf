@@ -28,8 +28,9 @@ general:
     value: "data/audios"
     type: "str"
     help: >
-          Base directory for audios. If the path is relative, it will be appended to the package path.
-
+          Base directory for audio files. If the path is relative, it will be appended to the package path.
+          If the directory contains the embeddings (.npy files) instead, please remember to set all preprocessing
+          to False.
 
 
 #####################################################
@@ -44,6 +45,26 @@ model:
     range: [1, None]
     help: >
           Total number of possible output classes. If not provided, we will use the max label number from y_train.
+
+
+#####################################################
+#  Options for preprocessing
+#####################################################
+
+preprocessing:
+
+  files_to_PCM:
+    value: True
+    type: "bool"
+    help: >
+          Whether to transform the files to 16-bit PCM wav files. You can disable this option if your files are already
+          in that format.
+
+  compute_embeddings:
+    value: True
+    type: "bool"
+    help: >
+          Whether to compute the embeddings. You can disable this option if you already have computed the embeddings.
 
 
 #####################################################
@@ -69,9 +90,9 @@ training:
           Initial learning rate.
 
   batch_size:
-    value: 16
+    value: 500
     type: "int"
-    range: [1, 64]
+    range: [1, 10000]
     help: >
           Batchsize to use during training. If your model has a large number of classes (>1000) you might need to decrease
           your batchsize so that the model still fits in the GPU.
@@ -118,12 +139,6 @@ training:
     type: "float"
     help: >
           L2 regularizer for the two last Dense layers.
-
-  recompute_embeddings:
-    value: True
-    type: "bool"
-    help: >
-          Whether to recompute the embeddings.
 
   use_validation:
     value: True

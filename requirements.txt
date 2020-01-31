@@ -8,6 +8,8 @@ resampy>=0.2.1
 PyYAML>=3.12
 six>=1.10.0
 pandas>=0.24.2
-werkzeug>=0.15.5
 pydub>=0.23.1
-deepaas
+python-magic>=0.4.15
+webargs>=5.5.2
+aiohttp>=3.6.2
+deepaas>=1.0.0

@@ -11,6 +11,7 @@ import os
 import io
 import subprocess
 import warnings
+from pathlib import Path
 
 import numpy as np
 from tqdm import tqdm
@@ -49,7 +50,6 @@ def load_data_splits(splits_dir, dataset_dir, split_name='train'):
     split = np.genfromtxt(os.path.join(splits_dir, '{}.txt'.format(split_name)), dtype='str', delimiter=' ')
     X = np.array([os.path.join(dataset_dir, i) for i in split[:, 0]])
 
-    #TODO Check this part of the code
     if len(split.shape) == 2:
         y = split[:, 1].astype(np.int32)
     else: # maybe test file has not labels
@@ -125,8 +125,10 @@ class data_sequence(Sequence):
         batch_idxs = self.indexes[idx*self.batch_size: (idx+1)*self.batch_size]
         batch_X = []
         for i in batch_idxs:
-            im = np.load(self.inputs[i])
-            batch_X.append(im)
+            sample = np.load(self.inputs[i])
+            if len((sample.shape)) == 2:
+                sample = np.expand_dims(sample, axis=0)
+            batch_X.append(sample)
         batch_X = np.vstack(batch_X)
         batch_y = to_categorical(self.targets[batch_idxs], num_classes=self.num_classes)
         return batch_X, batch_y
@@ -138,20 +140,21 @@ class data_sequence(Sequence):
             np.random.shuffle(self.indexes)
 
 
-def generate_embeddings(model_wrap, file_list, overwrite=True):
+def generate_embeddings(model_wrap, file_list):
     new_paths = []
-    embed_dir = paths.get_embeddings_dir()
-    embed_list = set(os.listdir(embed_dir))
+    embed_dir, dataset_dir = paths.get_embeddings_dir(), paths.get_dataset_dir()
     for wav_file in tqdm(file_list):
         with open(wav_file, 'rb') as f:
-            npy_name = os.path.basename(os.path.splitext(wav_file)[0]) + '.npy'
-            tmp_path = os.path.join(embed_dir, npy_name)
+            tmp_path = os.path.relpath(wav_file, start=dataset_dir)
+            tmp_path = tmp_path.split('.')[0] + '.npy'
+            tmp_path = os.path.join(embed_dir, tmp_path)
 
-            # Recompute the embedding if necessary
-            if overwrite or (npy_name not in embed_list):
-                raw_embeddings = model_wrap.generate_embeddings(f.read())
-                embeddings_processed = model_wrap.classifier_pre_process(raw_embeddings)
-                np.save(tmp_path, embeddings_processed)
+            raw_embeddings = model_wrap.generate_embeddings(f.read())
+            embeddings_processed = model_wrap.classifier_pre_process(raw_embeddings)
+
+            path = Path(os.path.dirname(tmp_path))
+            path.mkdir(parents=True, exist_ok=True)
+            np.save(tmp_path, embeddings_processed)
 
             new_paths.append(tmp_path)
 
@@ -159,6 +162,35 @@ def generate_embeddings(model_wrap, file_list, overwrite=True):
         raise Exception('WAV files should have different names.')
 
     return np.array(new_paths)
+
+
+def create_embeddings_names(X):
+    """
+    Small utility to transform existing txt files with audio names to txt files with embeddings names.
+    """
+    new_X = np.array([f.split('.')[0] + '.npy' for f in X])
+    if not os.path.isfile(new_X[0]):
+        raise Exception('Failed to generate the embeddings paths. '
+                        'Please check the dataset_directory points to the embeddings files and you can optionally '
+                        'provide the embeddings names instead of the original audio files names.')
+    return new_X
+
+
+def json_friendly(d):
+    """
+    Return a json frinedly dictionary (mainly remove numpy data types)
+    """
+    new_d = {}
+    for k, v in d.items():
+        if isinstance(v, (np.float32, np.float64)):
+            v = float(v)
+        elif isinstance(v, (np.ndarray, list)):
+            if isinstance(v[0], (np.float32, np.float64)):
+                v = np.array(v).astype(float).tolist()
+            else:
+                v = np.array(v).tolist()
+        new_d[k] = v
+    return new_d
 
 
 def file_to_PCM_16bits(read_path, save_path=None):

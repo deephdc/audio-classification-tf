@@ -1,9 +1,0 @@
-southpark/102_cracker.wav 1
-helicopters/heli-running3.wav 0
-southpark/102_barbrady.wav 1
-southpark/102_2dummy.wav 1
-helicopters/heli-pass2.wav 0
-southpark/102_castrate.wav 1
-southpark/102_beefduo.wav 1
-helicopters/heli-running2.wav 0
-southpark/102_damnIt.wav 1
