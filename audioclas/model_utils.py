@@ -38,10 +38,10 @@ def create_model(CONF, base_model):
     # Full model
     model = Model(inputs=base_model.input, outputs=predictions)
 
-    # # Add L2 reguralization for all the layers in the whole model
-    # if CONF['training']['l2_reg']:
-    #     for layer in model.layers:
-    #         layer.kernel_regularizer = regularizers.l2(CONF['training']['l2_reg'])
+    # Add L2 reguralization for all the layers in the whole model
+    if CONF['training']['l2_reg']:
+        for layer in model.layers:
+            layer.kernel_regularizer = regularizers.l2(CONF['training']['l2_reg'])
 
     return model, base_model
 

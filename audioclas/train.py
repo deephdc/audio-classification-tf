@@ -169,8 +169,8 @@ def train_fn(TIMESTAMP, CONF):
                                   validation_data=val_gen,
                                   validation_steps=val_steps,
                                   callbacks=utils.get_callbacks(CONF),
-                                  verbose=1, max_queue_size=5, workers=4,
-                                  use_multiprocessing=True, initial_epoch=0)
+                                  verbose=1, max_queue_size=5, workers=3,
+                                  use_multiprocessing=False, initial_epoch=0)
 
     # Saving everything
     print('Saving data to {} folder.'.format(paths.get_timestamped_dir()))

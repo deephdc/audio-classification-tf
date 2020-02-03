@@ -178,7 +178,7 @@ def create_embeddings_names(X):
 
 def json_friendly(d):
     """
-    Return a json frinedly dictionary (mainly remove numpy data types)
+    Return a json friendly dictionary (mainly remove numpy data types)
     """
     new_d = {}
     for k, v in d.items():
