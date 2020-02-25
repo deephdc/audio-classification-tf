@@ -20,7 +20,7 @@ def open_compressed(byte_stream, file_format, output_folder):
     -------
     Folder name of the extracted files.
     """
-
+    print('Decompressing the file ...')
     tar_extensions = ['tar', 'bz2', 'tb2', 'tbz', 'tbz2', 'gz', 'tgz', 'lz', 'lzma', 'tlz', 'xz', 'txz', 'Z', 'tZ']
     if file_format in tar_extensions:
         tar = tarfile.open(mode="r:{}".format(file_format), fileobj=byte_stream)

@@ -248,11 +248,11 @@ def predict_data(args):
         load_inference_model()
 
     # Unpack if needed
-    file_format = mimetypes.guess_extension(args['files'][0].content_type)[1:]
-    if file_format in compressed_extensions:
+    file_format = mimetypes.guess_extension(args['files'][0].content_type)
+    if file_format and file_format[1:] in compressed_extensions:
         output_folder = os.path.join('/tmp', os.path.basename(args['files'][0].filename)).split('.')[0] + '_decomp'
         misc.open_compressed(byte_stream=open(args['files'][0].filename, 'rb'),
-                             file_format=file_format,
+                             file_format=file_format[1:],
                              output_folder=output_folder)
         filenames = misc.find_audiofiles(folder_path=output_folder)
     else:
