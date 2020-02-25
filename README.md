@@ -127,7 +127,11 @@ The main changes with respect to the original repo are that:
 * FFMPEG has been added to support a wider range of audio formats
 * it has been made compatible with the [DEEPaaS API](http://docs.deep-hybrid-datacloud.eu/en/latest/user/overview/api.html)
 
-If you consider this project to be useful, please consider citing any of the references below:
+If you consider this project to be useful, please consider citing the DEEP Hybrid DataCloud project:
+
+* García, Álvaro López, et al. ["A Cloud-Based Framework for Machine Learning Workloads and Applications."](https://ieeexplore.ieee.org/abstract/document/8950411/authors) IEEE Access 8 (2020): 18681-18692.
+ 
+along with any of the references below:
 
 * _Jort F. Gemmeke, Daniel P. W. Ellis, Dylan Freedman, Aren Jansen, Wade Lawrence, R. Channing Moore, Manoj Plakal, Marvin Ritter_,["Audio set: An ontology and human-labeled dataset for audio events"](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45857.pdf), IEEE ICASSP, 2017.
 
