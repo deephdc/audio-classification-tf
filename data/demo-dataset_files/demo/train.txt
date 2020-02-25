@@ -1,0 +1,8 @@
+birds1.wav 0
+arcade_music.wav 1
+guitar.wav 1
+birds2.wav 0
+jazz_guitar.wav 1
+dog.wav 0
+cat-mad2_compressed.wav 0
+piano.wav 1

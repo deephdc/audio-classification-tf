@@ -1,2 +1,0 @@
-applause.wav 0
-arcade_music.wav 1
