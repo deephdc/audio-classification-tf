@@ -145,6 +145,22 @@ def load_inference_model():
 #     loaded = True
 
 
+def update_with_query_conf(user_args):
+    """
+    Update the default YAML configuration with the user's input args from the API query
+    """
+    # Update the default conf with the user input
+    CONF = config.CONF
+    for group, val in sorted(CONF.items()):
+        for g_key, g_val in sorted(val.items()):
+            if g_key in user_args:
+                g_val['value'] = json.loads(user_args[g_key])
+
+    # Check and save the configuration
+    config.check_conf(conf=CONF)
+    config.conf_dict = config.get_conf_dict(conf=CONF)
+
+
 def catch_error(f):
     def wrap(*args, **kwargs):
         try:
@@ -297,41 +313,24 @@ def wikipedia_link(pred_lab):
     return link
 
 
-def train(**user_conf):
+def train(**args):
     """
-    Parameters
-    ----------
-    user_conf : dict
-        Json dict (created with json.dumps) with the user's configuration parameters that will replace the defaults.
-        Must be loaded with json.loads()
-        For example:
-            user_conf={'num_classes': 'null', 'lr_step_decay': '0.1', 'lr_step_schedule': '[0.7, 0.9]', 'use_early_stopping': 'false'}
+    Train an image classifier
     """
-    CONF = config.CONF
-
-    # Update the conf with the user input
-    for group, val in sorted(CONF.items()):
-        for g_key, g_val in sorted(val.items()):
-            g_val['value'] = json.loads(user_conf[g_key])
-
-    # Check the configuration
-    try:
-        config.check_conf(conf=CONF)
-    except Exception as e:
-        raise Exception(e)
-
-    CONF = config.conf_dict(conf=CONF)
+    update_with_query_conf(user_args=args)
+    CONF = config.conf_dict
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-
     config.print_conf_table(CONF)
-    K.clear_session() # remove the model loaded for prediction
+    K.clear_session()  # remove the model loaded for prediction
     train_fn(TIMESTAMP=timestamp, CONF=CONF)
 
     # Sync with NextCloud folders (if NextCloud is available)
     try:
-        mount_nextcloud(paths.get_models_dir(), 'ncplants:/models')
+        mount_nextcloud(paths.get_models_dir(), 'rshare:/models')
     except Exception as e:
         print(e)
+
+    return {'modelname': timestamp}
 
 
 def populate_parser(parser, default_conf):
@@ -368,16 +367,17 @@ def populate_parser(parser, default_conf):
     return parser
 
 
-# def get_train_args():
-#
-#     default_conf = config.CONF
-#     default_conf = OrderedDict([('general', default_conf['general']),
-#                                 ('model', default_conf['model']),
-#                                 ('training', default_conf['training']),
-#                                 ('monitor', default_conf['monitor']),
-#                                 ('dataset', default_conf['dataset']),
-#                                 ('augmentation', default_conf['augmentation'])])
-#     return get_args(default_conf)
+def get_train_args():
+
+    parser = OrderedDict()
+    default_conf = config.CONF
+    default_conf = OrderedDict([('general', default_conf['general']),
+                                ('model', default_conf['model']),
+                                ('preprocessing', default_conf['preprocessing']),
+                                ('training', default_conf['training']),
+                                ('monitor', default_conf['monitor'])])
+
+    return populate_parser(parser, default_conf)
 
 
 def get_predict_args():

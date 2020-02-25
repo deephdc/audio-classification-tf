@@ -169,8 +169,9 @@ def train_fn(TIMESTAMP, CONF):
                                   validation_data=val_gen,
                                   validation_steps=val_steps,
                                   callbacks=utils.get_callbacks(CONF),
-                                  verbose=1, max_queue_size=5, workers=3,
-                                  use_multiprocessing=False, initial_epoch=0)
+                                  verbose=1, max_queue_size=5, workers=4,
+                                  use_multiprocessing=CONF['training']['use_multiprocessing'],
+                                  initial_epoch=0)
 
     # Saving everything
     print('Saving data to {} folder.'.format(paths.get_timestamped_dir()))
@@ -213,10 +214,10 @@ if __name__ == '__main__':
     # ################
 
     ################ xenocanto
-    CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/xenocanto_embeddings'
-    CONF['preprocessing']['compute_embeddings'] = False
-    CONF['preprocessing']['files_to_PCM'] = False
-    CONF['training']['epochs'] = 30
+    # CONF['general']['dataset_directory'] = '/media/ignacio/Datos/datasets/xenocanto_embeddings'
+    # CONF['preprocessing']['compute_embeddings'] = False
+    # CONF['preprocessing']['files_to_PCM'] = False
+    # CONF['training']['epochs'] = 30
     ################
 
     train_fn(TIMESTAMP=timestamp, CONF=CONF)

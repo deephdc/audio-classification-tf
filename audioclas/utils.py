@@ -94,9 +94,9 @@ class LRHistory(callbacks.Callback):
         super().on_epoch_end(epoch, logs)
 
 
-def launch_tensorboard(port=6006):
+def launch_tensorboard(port, logdir):
     subprocess.call(['tensorboard',
-                     '--logdir', '{}'.format(paths.get_logs_dir()),
+                     '--logdir', '{}'.format(logdir),
                      '--port', '{}'.format(port),
                      '--host', '0.0.0.0'])
 
@@ -130,16 +130,19 @@ def get_callbacks(CONF, use_lr_decay=True):
                                   epoch_milestones=milestones.tolist()))
 
     if CONF['monitor']['use_tensorboard']:
-        calls.append(callbacks.TensorBoard(log_dir=paths.get_logs_dir(), write_graph=False))
+        calls.append(callbacks.TensorBoard(log_dir=paths.get_logs_dir(),
+                                           write_graph=False,
+                                           profile_batch=0))  # https://github.com/tensorflow/tensorboard/issues/2084#issuecomment-483395808
 
         # # Let the user launch Tensorboard
         # print('Monitor your training in Tensorboard by executing the following comand on your console:')
         # print('    tensorboard --logdir={}'.format(paths.get_logs_dir()))
-        # Run Tensorboard  on a separate Thread/Process on behalf of the user
+
+        # Run Tensorboard on a separate Thread/Process on behalf of the user
         port = os.getenv('monitorPORT', 6006)
         port = int(port) if len(str(port)) >= 4 else 6006
-        subprocess.run(['fuser', '-k', '{}/tcp'.format(port)]) # kill any previous process in that port
-        p = Process(target=launch_tensorboard, args=(port,), daemon=True)
+        subprocess.run(['fuser', '-k', '{}/tcp'.format(port)])  # kill any previous process in that port
+        p = Process(target=launch_tensorboard, args=(port, paths.get_logs_dir()), daemon=True)
         p.start()
 
     if CONF['monitor']['use_remote']:
