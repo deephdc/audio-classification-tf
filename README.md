@@ -69,12 +69,11 @@ You can train your own audio classifier with your custom dataset. For that you h
 Put your images in the`./data/audios` folder. If you have your data somewhere else you can use that location by setting
  the `dataset_directory` parameter in the training args. 
 Please use a standard audio format (like `.mp3` or `.wav`).
- 
-Audio files must last more than 1s and must all have the same length (up to a second). Thi is because the embeddings
-arrays need have the same shape so that they can be merged in the same batch. For examples a 10.8s audio will have an
-embeddings shape of ``(10, 128)`` while a 5.2s audio will have a shape of ``(5, 128)`` and won't be possible to use
-them in the same batch. So if you want to use a shape of ``(10, 128)`` you have to make sure that all your audio
-are in between 10 and 11s.
+
+> **Note** The classifier works on 10s samples. So if an audio file is longer/shorter than 10s it will be concatenated
+> in loop to make it last a multiple of 10s. So a 22 seconds audio file will create 3 embeddings: `*-0.npy`, `*-1.npy`
+> and `*-2.npy`. 
+
 
 ### Prepare the data splits
 
@@ -88,6 +87,10 @@ The `train.txt`, `val.txt` and `test.txt` files associate an audio name (or rela
 to *start at zero*).
 The `classes.txt` file translates those label numbers to label names.
 Finally the `info.txt` allows you to provide information (like number of audio files in the database) about each class.
+
+If you are using the option `compute_embeddings=False` then the file path should point yo the `.npy` path of the
+embedding instead than the original audio file and the `dataset_directory` parameter should point to the folder
+containing the embeddings. 
 
 You can find examples of these files at  `./data/demo-dataset_files`.
 

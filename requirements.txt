@@ -7,7 +7,6 @@ tqdm>=4.25.0
 resampy>=0.2.1
 PyYAML>=3.12
 six>=1.10.0
-pandas>=0.24.2
 pydub>=0.23.1
 python-magic>=0.4.15
 webargs>=5.5.2

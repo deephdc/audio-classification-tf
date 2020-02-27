@@ -21,8 +21,8 @@ import numpy as np
 import resampy
 from scipy.io import wavfile
 
-from audioclas import mel_features
-from audioclas import vggish_params
+from audioclas.embeddings import mel_features
+from audioclas.embeddings import vggish_params
 
 
 

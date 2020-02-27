@@ -32,7 +32,7 @@ https://github.com/tensorflow/models/blob/master/research/slim/nets/vgg.py
 
 import tensorflow as tf
 
-import audioclas.vggish_params as params
+import audioclas.embeddings.vggish_params as params
 
 slim = tf.contrib.slim
 

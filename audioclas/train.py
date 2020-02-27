@@ -35,9 +35,9 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 from audioclas import paths, config, utils, model_utils
-from audioclas.model import ModelWrapper
 from audioclas.data_utils import load_data_splits, load_class_names, data_sequence, generate_embeddings,\
-    file_to_PCM_16bits, create_embeddings_names, json_friendly
+    file_to_PCM_16bits, json_friendly, save_embeddings_txt
+from audioclas.model import ModelWrapper
 from audioclas.optimizers import customAdam
 
 # Set Tensorflow verbosity logs
@@ -89,6 +89,9 @@ def train_fn(TIMESTAMP, CONF):
             "Your val.txt file has more categories than those defined in classes.txt"
 
     # Transform the training data to scipy-compatible 16-bit
+    if not CONF['preprocessing']['compute_embeddings']:  # no need to compute if embeddings are precomputed
+        CONF['preprocessing']['files_to_PCM'] = False
+
     if CONF['preprocessing']['files_to_PCM']:
         print('Transforming inputs to PCM 16-bits ...')
         for p in tqdm(X_train):
@@ -98,7 +101,8 @@ def train_fn(TIMESTAMP, CONF):
                 file_to_PCM_16bits(p)
 
     # Create model wrapper
-    model_wrap = ModelWrapper()
+    model_wrap = ModelWrapper(classifier_model=os.path.join(paths.get_models_dir(), 'audioset', 'ckpts',
+                                                            'final_model.h5'))
 
     # Generating new embeddings if needed
     if CONF['preprocessing']['compute_embeddings']:
@@ -108,19 +112,17 @@ def train_fn(TIMESTAMP, CONF):
             os.remove(os.path.join(embed_dir, f))
 
         print("Generating new embeddings ...")
-        X_train = generate_embeddings(model_wrap=model_wrap,
-                                      file_list=X_train)
+        X_train, y_train = generate_embeddings(model_wrap=model_wrap, filepaths=X_train, labels=y_train)
+        save_embeddings_txt(X_train, y_train, 'train_emb.txt')
+
         if CONF['training']['use_validation']:
-            X_val = generate_embeddings(model_wrap=model_wrap,
-                                        file_list=X_val)
+            X_val, y_val = generate_embeddings(model_wrap=model_wrap, filepaths=X_val, labels=y_val)
+            save_embeddings_txt(X_val, y_val, 'val_emb.txt')
 
     else:
         if not X_train[0].endswith('.npy'):
-            warnings.warn("If you do not compute the embeddings your train/val.txt should point to the embeddings .npy"
-                          " files. Trying to generate the embeddings names on your behalf.")
-            X_train = create_embeddings_names(X_train)
-            if CONF['training']['use_validation']:
-                X_val = create_embeddings_names(X_val)
+            raise Exception("If you do not compute the embeddings, your train/val.txt should point to the"
+                            "embeddings `.npy` files.")
 
     # Create data generator for train and val sets
     train_gen = data_sequence(X_train, y_train,

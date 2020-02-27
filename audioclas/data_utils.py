@@ -140,40 +140,50 @@ class data_sequence(Sequence):
             np.random.shuffle(self.indexes)
 
 
-def generate_embeddings(model_wrap, file_list):
-    new_paths = []
+def generate_embeddings(model_wrap, filepaths, labels, shuffle=True):
+    new_paths, new_labels = [], []
     embed_dir, dataset_dir = paths.get_embeddings_dir(), paths.get_dataset_dir()
-    for wav_file in tqdm(file_list):
-        with open(wav_file, 'rb') as f:
-            tmp_path = os.path.relpath(wav_file, start=dataset_dir)
-            tmp_path = tmp_path.split('.')[0] + '.npy'
+    for fpath, lab in tqdm(zip(filepaths, labels)):
+        with open(fpath, 'rb') as f:
+            tmp_path = os.path.relpath(fpath, start=dataset_dir)
+            tmp_path = tmp_path.split('.')[0]
             tmp_path = os.path.join(embed_dir, tmp_path)
 
+            # Create save directory if needed
+            path = Path(os.path.dirname(tmp_path))
+            path.mkdir(parents=True, exist_ok=True)
+
+            # Compute embeddings
             raw_embeddings = model_wrap.generate_embeddings(f.read())
             embeddings_processed = model_wrap.classifier_pre_process(raw_embeddings)
 
-            path = Path(os.path.dirname(tmp_path))
-            path.mkdir(parents=True, exist_ok=True)
-            np.save(tmp_path, embeddings_processed)
+            # Save each 10s embedding in a separate .npy file
+            for i, sample in enumerate(embeddings_processed):
+                spath = tmp_path + '-{}.npy'.format(i)
+                np.save(spath, np.expand_dims(sample, axis=0))
+                new_paths.append(spath)
+                new_labels.append(lab)
 
-            new_paths.append(tmp_path)
+    # Shuffle lists
+    new_paths, new_labels = np.array(new_paths), np.array(new_labels)
+    if shuffle:
+        args = np.arange(len(new_paths))
+        np.random.shuffle(args)
+        new_paths, new_labels = new_paths[args], new_labels[args]
 
-    if len(set(new_paths)) < len(file_list):
-        raise Exception('WAV files should have different names.')
-
-    return np.array(new_paths)
+    return new_paths, new_labels
 
 
-def create_embeddings_names(X):
-    """
-    Small utility to transform existing txt files with audio names to txt files with embeddings names.
-    """
-    new_X = np.array([f.split('.')[0] + '.npy' for f in X])
-    if not os.path.isfile(new_X[0]):
-        raise Exception('Failed to generate the embeddings paths. '
-                        'Please check the dataset_directory points to the embeddings files and you can optionally '
-                        'provide the embeddings names instead of the original audio files names.')
-    return new_X
+def save_embeddings_txt(filepaths, labels, name):
+    # Remove prepath
+    new_paths = []
+    embed_dir = paths.get_embeddings_dir()
+    for fpath in filepaths:
+        tmp_path = os.path.relpath(fpath, start=embed_dir)
+        new_paths.append(tmp_path)
+    new_paths = np.array(new_paths)
+
+    np.savetxt(os.path.join(paths.get_ts_splits_dir(), name), np.array([new_paths, labels]).T, delimiter=' ', fmt='%s')
 
 
 def json_friendly(d):
@@ -193,7 +203,7 @@ def json_friendly(d):
     return new_d
 
 
-def file_to_PCM_16bits(read_path, save_path=None):
+def file_to_PCM_16bits(read_path, save_path=None, start=0, end=None):
     """
     Transform audio file to a format readable by scipy, ie. uncompressed PCM 16-bits.
     Support transformation from any format supported by ffmpeg.
@@ -205,17 +215,20 @@ def file_to_PCM_16bits(read_path, save_path=None):
     except Exception as e:
         raise Exception("""Invalid audio file. Make sure you have FFMPEG installed.""")
 
+    # Crop audio
+    audiofile = audiofile[start*1000:]
+    if end:
+        audiofile = audiofile[:end*1000]
+
     # Apply desired preprocessing
-    audiofile.set_sample_width = 2  # set to 16-bits
-    audiofile = audiofile[:10*1000]  # keep only the first ten seconds
-    # duration = audiofile.duration_seconds
+    audiofile = audiofile.set_sample_width(2)  # set to 16-bits
     # audiofile.strip_silence
 
     save_path = read_path if not save_path else save_path
     audiofile.export(save_path, format="wav")
 
 
-def bytes_to_PCM_16bits(bytes):
+def bytes_to_PCM_16bits(bytes, start=0, end=None):
     """
     Transform audio file to a format readable by scipy, ie. uncompressed PCM 16-bits.
     Support transformation from any format supported by ffmpeg.
@@ -225,10 +238,13 @@ def bytes_to_PCM_16bits(bytes):
     except Exception as e:
         raise Exception("""Invalid audio file.""")
 
+    # Crop audio
+    audiofile = audiofile[start*1000:]
+    if end:
+        audiofile = audiofile[:end*1000]
+
     # Apply desired preprocessing
-    audiofile.set_sample_width = 2  # set to 16-bits
-    audiofile = audiofile[:10*1000]  # keep only the first ten seconds
-    # duration = audiofile.duration_seconds
+    audiofile = audiofile.set_sample_width(2)  # set to 16-bits
     # audiofile.strip_silence
 
     # Return the results as bytes without writing to disk

@@ -30,21 +30,19 @@ import random
 import re
 import string
 from urllib.request import urlretrieve
+import warnings
 
 from deepaas.model.v2.wrapper import UploadedFile
 import numpy as np
 import requests
-import tensorflow as tf
-from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 from webargs import fields
 from aiohttp.web import HTTPBadRequest
 
-
 from audioclas import config, paths, misc
-from audioclas.train import train_fn
+from audioclas.data_utils import load_class_names, load_class_info, bytes_to_PCM_16bits
 from audioclas.model import ModelWrapper
-from audioclas.data_utils import bytes_to_PCM_16bits, mount_nextcloud
+from audioclas.train import train_fn
 
 
 # # Mount NextCloud folders (if NextCloud is available)
@@ -56,93 +54,102 @@ from audioclas.data_utils import bytes_to_PCM_16bits, mount_nextcloud
 #     print(e)
 
 # Empty model variables for inference (will be loaded the first time we perform inference)
-loaded = False
-graph, model, conf, class_names, class_info = None, None, None, None, None
+loaded_ts, loaded_ckpt = None, None
+model_wrapper, conf, class_names, class_info = None, None, None, None
 
-# # Additional parameters
-top_K = 5  # number of top classes predictions to return
-
-
-model_wrapper = None
+# Additional parameters
 compressed_extensions = ['zip', 'tar', 'bz2', 'tb2', 'tbz', 'tbz2', 'gz', 'tgz', 'lz', 'lzma', 'tlz', 'xz', 'txz', 'Z', 'tZ']
 
 
-def load_inference_model():
-    global model_wrapper
+def load_inference_model(timestamp=None, ckpt_name=None):
+    """
+    Load a model for prediction.
+
+    Parameters
+    ----------
+    * timestamp: str
+        Name of the timestamp to use. The default is the last timestamp in `./models`.
+    * ckpt_name: str
+        Name of the checkpoint to use. The default is the last checkpoint in `./models/[timestamp]/ckpts`.
+    """
+    global loaded_ts, loaded_ckpt
+    global model_wrapper, conf, class_names, class_info
+
+    # Set the timestamp
+    timestamp_list = next(os.walk(paths.get_models_dir()))[1]
+    timestamp_list = sorted(timestamp_list)
+    if not timestamp_list:
+        raise Exception(
+            "You have no models in your `./models` folder to be used for inference. "
+            "Therefore the API can only be used for training.")
+    elif timestamp is None:
+        timestamp = timestamp_list[-1]
+    elif timestamp not in timestamp_list:
+        raise ValueError(
+            "Invalid timestamp name: {}. Available timestamp names are: {}".format(timestamp, timestamp_list))
+    paths.timestamp = timestamp
+    print('Using TIMESTAMP={}'.format(timestamp))
+
+    # Set the checkpoint model to use to make the prediction
+    ckpt_list = os.listdir(paths.get_checkpoints_dir())
+    ckpt_list = sorted([name for name in ckpt_list if name.endswith('.h5')])
+    if not ckpt_list:
+        raise Exception(
+            "You have no checkpoints in your `./models/{}/ckpts` folder to be used for inference. ".format(timestamp) +
+            "Therefore the API can only be used for training.")
+    elif ckpt_name is None:
+        ckpt_name = ckpt_list[-1]
+    elif ckpt_name not in ckpt_list:
+        raise ValueError(
+            "Invalid checkpoint name: {}. Available checkpoint names are: {}".format(ckpt_name, ckpt_list))
+    print('Using CKPT_NAME={}'.format(ckpt_name))
 
     # Clear the previous loaded model
     K.clear_session()
 
-    # Load new model
-    model_wrapper = ModelWrapper()
+    # Load the class names and info
+    splits_dir = paths.get_ts_splits_dir()
+    class_names = load_class_names(splits_dir=splits_dir)
+    class_info = None
+    if 'info.txt' in os.listdir(splits_dir):
+        class_info = load_class_info(splits_dir=splits_dir)
+        if len(class_info) != len(class_names):
+            warnings.warn("""The 'classes.txt' file has a different length than the 'info.txt' file.
+            If a class has no information whatsoever you should leave that classes row empty or put a '-' symbol.
+            The API will run with no info until this is solved.""")
+            class_info = None
+    if class_info is None:
+        class_info = ['' for _ in range(len(class_names))]
+
+    # Load training configuration
+    conf_path = os.path.join(paths.get_conf_dir(), 'conf.json')
+    with open(conf_path) as f:
+        conf = json.load(f)
+        update_with_saved_conf(conf)
+
+    # Load the model
+    model_wrapper = ModelWrapper(classifier_model=os.path.join(paths.get_checkpoints_dir(), ckpt_name))
+
+    # Set the model as loaded
+    loaded_ts = timestamp
+    loaded_ckpt = ckpt_name
 
 
-# def load_inference_model():
-#     """
-#     Load a model for prediction.
-#
-#     If several timestamps are available in `./models` it will load `.models/api` or the last timestamp if `api` is not
-#     available.
-#     If several checkpoints are available in `./models/[timestamp]/ckpts` it will load
-#     `.models/[timestamp]/ckpts/final_model.h5` or the last checkpoint if `final_model.h5` is not available.
-#     """
-#     global loaded, graph, model, conf, class_names, class_info
-#
-#     # Set the timestamp
-#     timestamps = next(os.walk(paths.get_models_dir()))[1]
-#     if not timestamps:
-#         raise BadRequest(
-#             """You have no models in your `./models` folder to be used for inference.
-#             Therefore the API can only be used for training.""")
-#     else:
-#         if 'api' in timestamps:
-#             TIMESTAMP = 'api'
-#         else:
-#             TIMESTAMP = sorted(timestamps)[-1]
-#         paths.timestamp = TIMESTAMP
-#         print('Using TIMESTAMP={}'.format(TIMESTAMP))
-#
-#         # Set the checkpoint model to use to make the prediction
-#         ckpts = os.listdir(paths.get_checkpoints_dir())
-#         if not ckpts:
-#             raise BadRequest(
-#                 """You have no checkpoints in your `./models/{}/ckpts` folder to be used for inference.
-#                 Therefore the API can only be used for training.""".format(TIMESTAMP))
-#         else:
-#             if 'final_model.h5' in ckpts:
-#                 MODEL_NAME = 'final_model.h5'
-#             else:
-#                 MODEL_NAME = sorted([name for name in ckpts if name.endswith('*.h5')])[-1]
-#             print('Using MODEL_NAME={}'.format(MODEL_NAME))
-#
-#             # Clear the previous loaded model
-#             K.clear_session()
-#
-#             # Load the class names and info
-#             splits_dir = paths.get_ts_splits_dir()
-#             class_names = load_class_names(splits_dir=splits_dir)
-#             class_info = None
-#             if 'info.txt' in os.listdir(splits_dir):
-#                 class_info = load_class_info(splits_dir=splits_dir)
-#                 if len(class_info) != len(class_names):
-#                     warnings.warn("""The 'classes.txt' file has a different length than the 'info.txt' file.
-#                     If a class has no information whatsoever you should leave that classes row empty or put a '-' symbol.
-#                     The API will run with no info until this is solved.""")
-#                     class_info = None
-#             if class_info is None:
-#                 class_info = ['' for _ in range(len(class_names))]
-#
-#             # Load training configuration
-#             conf_path = os.path.join(paths.get_conf_dir(), 'conf.json')
-#             with open(conf_path) as f:
-#                 conf = json.load(f)
-#
-#             # Load the model
-#             model = load_model(os.path.join(paths.get_checkpoints_dir(), MODEL_NAME), custom_objects=utils.get_custom_objects())
-#             graph = tf.get_default_graph()
-#
-#     # Set the model as loaded
-#     loaded = True
+def update_with_saved_conf(saved_conf):
+    """
+    Update the default YAML configuration with the configuration saved from training
+    """
+    # Update the default conf with the user input
+    CONF = config.CONF
+    for group, val in sorted(CONF.items()):
+        if group in saved_conf.keys():
+            for g_key, g_val in sorted(val.items()):
+                if g_key in saved_conf[group].keys():
+                    g_val['value'] = saved_conf[group][g_key]
+
+    # Check and save the configuration
+    config.check_conf(conf=CONF)
+    config.conf_dict = config.get_conf_dict(conf=CONF)
 
 
 def update_with_query_conf(user_args):
@@ -241,11 +248,11 @@ def predict_data(args):
     """
     Function to predict a local image
     """
-    catch_localfile_error(args['files'])
+    # Check user configuration
+    update_with_query_conf(args)
+    conf = config.conf_dict
 
-    # Load the model if needed
-    if model_wrapper is None:
-        load_inference_model()
+    catch_localfile_error(args['files'])
 
     # Unpack if needed
     file_format = mimetypes.guess_extension(args['files'][0].content_type)
@@ -258,6 +265,11 @@ def predict_data(args):
     else:
         filenames = [f.filename for f in args['files']]
 
+    # Load model if needed
+    if loaded_ts != conf['testing']['timestamp'] or loaded_ckpt != conf['testing']['ckpt_name']:
+        load_inference_model(timestamp=conf['testing']['timestamp'],
+                             ckpt_name=conf['testing']['ckpt_name'])
+
     # Getting the predictions
     outputs = []
     for fname in filenames:
@@ -267,31 +279,32 @@ def predict_data(args):
             print(e)
             tmp = {'title': fname,
                    'error': str(e)}
+        finally:
+            os.remove(fname)
         outputs.append(tmp)
 
     return outputs
 
 
-def predict_audio(fpath):
+def predict_audio(fpath, merge=True):
 
     data_bytes = bytes_to_PCM_16bits(fpath)
-    try:
-        preds = model_wrapper._predict(wav_file=data_bytes,
-                                       time_stamp=0)
-    except ValueError:
-        raise ValueError('Invalid start time: value outside audio clip')
+    pred_lab, pred_prob = model_wrapper.predict(wav_file=data_bytes, merge=merge)
+
+    if merge:
+        pred_lab, pred_prob = np.squeeze(pred_lab), np.squeeze(pred_prob)
 
     # Formatting the predictions to the required API format
-    out = {'title': os.path.basename(fpath),
-           'label_ids': [p[0] for p in preds],
-           'labels': [p[1] for p in preds],
-           'probabilities': [float(p[2]) for p in preds],
-           'links': {'Google Images': [image_link(p[1]) for p in preds],
-                     'Wikipedia': [wikipedia_link(p[1]) for p in preds]
-                     }
-           }
+    pred = {'title': os.path.basename(fpath),
+            'labels': [class_names[p] for p in pred_lab],
+            'probabilities': [float(p) for p in pred_prob],
+            'labels_info': [class_info[p] for p in pred_lab],
+            'links': {'Google Images': [image_link(class_names[p]) for p in pred_lab],
+                      'Wikipedia': [wikipedia_link(class_names[p]) for p in pred_lab]
+                      }
+            }
 
-    return out
+    return pred
 
 
 def image_link(pred_lab):
@@ -324,11 +337,11 @@ def train(**args):
     K.clear_session()  # remove the model loaded for prediction
     train_fn(TIMESTAMP=timestamp, CONF=CONF)
 
-    # Sync with NextCloud folders (if NextCloud is available)
-    try:
-        mount_nextcloud(paths.get_models_dir(), 'rshare:/models')
-    except Exception as e:
-        print(e)
+    # # Sync with NextCloud folders (if NextCloud is available)
+    # try:
+    #     mount_nextcloud(paths.get_models_dir(), 'rshare:/models')
+    # except Exception as e:
+    #     print(e)
 
     return {'modelname': timestamp}
 
@@ -382,6 +395,19 @@ def get_train_args():
 
 def get_predict_args():
     parser = OrderedDict()
+    default_conf = config.CONF
+    default_conf = OrderedDict([('testing', default_conf['testing'])])
+
+    # Add options for modelname
+    timestamp = default_conf['testing']['timestamp']
+    timestamp_list = next(os.walk(paths.get_models_dir()))[1]
+    timestamp_list.remove('common')
+    timestamp_list = sorted(timestamp_list)
+    if not timestamp_list:
+        timestamp['value'] = ''
+    else:
+        timestamp['value'] = timestamp_list[-1]
+        timestamp['choices'] = timestamp_list
 
     # Add data and url fields
     parser['files'] = fields.Field(required=False,
@@ -397,7 +423,7 @@ def get_predict_args():
 
     # missing action="append" --> append more than one url
 
-    return parser
+    return populate_parser(parser, default_conf)
 
 
 def get_metadata(distribution_name='audioclas'):

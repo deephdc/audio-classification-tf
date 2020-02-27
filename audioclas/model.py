@@ -1,35 +1,16 @@
-#
-# Copyright 2018-2019 IBM Corp. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Adapted from https://github.com/IBM/MAX-Audio-Classifier/blob/master/core/model.py
 
 import os
 
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 
-from audioclas import vggish_input
-from audioclas import vggish_params
-from audioclas import vggish_postprocess
-from audioclas import vggish_slim
+from audioclas.embeddings import vggish_input, vggish_params, vggish_postprocess, vggish_slim
 from audioclas import paths
 
 
-DEFAULT_EMBEDDING_CHECKPOINT = os.path.join(paths.get_models_dir(), 'default', 'vggish_model.ckpt')
-DEFAULT_PCA_PARAMS = os.path.join(paths.get_models_dir(), 'default', 'vggish_pca_params.npz')
-DEFAULT_CLASSIFIER_MODEL = os.path.join(paths.get_models_dir(), 'default', 'classifier_model.h5')
-DEFAULT_METADATA = os.path.join(paths.get_models_dir(), 'default', 'class_labels_indices.csv')
+DEFAULT_EMBEDDING_CHECKPOINT = os.path.join(paths.get_models_dir(), 'common', 'vggish_model.ckpt')
+DEFAULT_PCA_PARAMS = os.path.join(paths.get_models_dir(), 'common', 'vggish_pca_params.npz')
 
 
 class ModelWrapper():
@@ -38,8 +19,9 @@ class ModelWrapper():
     Also contains any helper function required.
     """
 
-    def __init__(self, embedding_checkpoint=DEFAULT_EMBEDDING_CHECKPOINT, pca_params=DEFAULT_PCA_PARAMS,
-                 classifier_model=DEFAULT_CLASSIFIER_MODEL):
+    def __init__(self, classifier_model, embedding_checkpoint=DEFAULT_EMBEDDING_CHECKPOINT,
+                 pca_params=DEFAULT_PCA_PARAMS):
+
         # Initialize the classifier model
         self.session_classify = tf.keras.backend.get_session()
         self.classify_model = tf.keras.models.load_model(classifier_model, compile=False)
@@ -56,9 +38,6 @@ class ModelWrapper():
         # Prepare a postprocessor to munge the vgg-ish model embeddings.
         self.pproc = vggish_postprocess.Postprocessor(pca_params)
 
-        # Metadata
-        self.indices = pd.read_csv(DEFAULT_METADATA)
-
     def generate_embeddings(self, wav_file):
         """
         Generates embeddings as per the Audioset VGG-ish model.
@@ -66,7 +45,7 @@ class ModelWrapper():
         Input args:
             wav_file   = /path/to/audio/in/wav/format.wav
         Returns:
-                None.
+            numpy array of shape (x,128) where x is any arbitrary whole number >1.
         """
         examples_batch = vggish_input.wavfile_to_examples(wav_file)
         [embedding_batch] = self.session_embedding.run([self.embedding_tensor],
@@ -86,71 +65,64 @@ class ModelWrapper():
         class_scores = output_tensor.eval(feed_dict={input_tensor: processed_embeddings}, session=self.session_classify)
         return class_scores
 
-    def _predict(self, wav_file, time_stamp=0):
+    def predict(self, wav_file, top_K=5, merge=True):
+        """Predict function
+        If merge=True we use the whole audio to make predictions (ie. we average over predictions of 10s samples).
+        If merge=False we return separate predictions for each 10s sample.
         """
-        Driver function that performs all core tasks.
-        Input args:
-            wav_file = /path/to/audio_file.wav
-        Returns:
-            preds = numpy array of shape (527,) containing class probabilities.
-        """
-        # Step 1: Generate the embeddings.
         raw_embeddings = self.generate_embeddings(wav_file)
-        # Step 2: Process the embeddings before sending it to the classifier.
-        embeddings_processed = self.classifier_pre_process(raw_embeddings, time_stamp)
-        # Step 3: Classify the embeddings.
-        raw_preds = self.classify_embeddings(embeddings_processed)
-        # Step 4: Post process the raw prediction vectors to a more interpretable format.
-        preds = self.classifier_post_process(raw_preds[0])
-        return preds
+        embeddings_processed = self.classifier_pre_process(raw_embeddings)
+        output = self.classify_embeddings(embeddings_processed)
 
-    def classifier_pre_process(self, embeddings, time_stamp=0):
+        if merge:
+            output = np.mean(output, axis=0)  # take the mean across the batch
+            lab = np.argsort(output)[::-1]  # sort labels in descending prob
+            lab = lab[:top_K]  # keep only top_K labels
+            lab = np.expand_dims(lab, axis=0)  # add extra dimension to make to output have a shape (1, top_k)
+            prob = output[lab]
+        else:
+            lab = np.argsort(output, axis=1)[:, ::-1]  # sort labels in descending prob
+            lab = lab[:, :top_K]  # keep only top_K labels
+            prob = output[np.repeat(np.arange(len(lab)), lab.shape[1]),
+                          lab.flatten()].reshape(lab.shape)  # retrieve corresponding probabilities
+
+        return lab, prob
+
+    @staticmethod
+    def classifier_pre_process(embeddings, start_time=0):
         """
         Helper function to make sure input to classifier the model is of standard size.
-        * Clips/Crops audio clips embeddings to start at time_stamp if not default and throws error if invalid
-        * Augments audio embeddings shorter than 10 seconds (10x128 tensor) to a multiple of itself
-        closest to 10 seconds.
-        * Clips/Crops audio clips embeddings than 10 seconds to 10 seconds.
+        * Clips/Crops audio clips embeddings to start at `start_time`
+        * Augments audio embeddings to an upper multiple of 10 seconds by repeating in loop.
+        * Reshape embeddings to a batch of 10s samples (N, 10, 128)
         * Converts dtype of embeddings from uint8 to float32
 
         Input args :
             embeddings = numpy array of shape (x,128) where x is any arbitrary whole number >1.
         Returns:
-            embeddings = numpy array of shape (1,10,128), dtype=float32.
+            embeddings = numpy array of shape (N,10,128), dtype=float32.
         """
-        embeddings_ts = int(time_stamp / vggish_params.EXAMPLE_HOP_SECONDS)
-        embeddings_len = embeddings.shape[0]
-        if 0 < embeddings_ts < embeddings_len:
-            end_ts = embeddings_ts + 10
-            end_ts = end_ts if end_ts < embeddings_len else embeddings_len
-            embeddings = embeddings[embeddings_ts:end_ts, :]
-        elif embeddings_ts < 0 or embeddings_ts >= embeddings_len:
-            raise ValueError
-
-        embeddings_len = embeddings.shape[0]
-        if embeddings_len < 10:
-            while embeddings_len < 10:
-                embeddings = np.stack((embeddings, embeddings))
-                embeddings_len = embeddings.size / 128
-            embeddings = embeddings.reshape((int(embeddings_len), 128))
+        # Crop at start time
+        embeddings_ts = int(start_time / vggish_params.EXAMPLE_HOP_SECONDS)
+        if 0 <= embeddings_ts < embeddings.shape[0]:
+            embeddings = embeddings[embeddings_ts:, :]
         else:
-            pass
-        embeddings = embeddings[0:10, :].reshape([1, 10, 128])
-        embeddings = self.uint8_to_float32(embeddings)
+            raise ValueError('Invalid start time.')
+
+        # Expand to upper 10s multiple (eg. 13s --> 20s) by repeating in loop
+        if embeddings.shape[0] < 10:
+            new_embeddings = embeddings
+            rep = int(np.ceil(10 / embeddings.shape[0]))
+            for _ in range(rep - 1):
+                new_embeddings = np.vstack((new_embeddings, embeddings))
+        else:
+            new_embeddings = np.vstack((embeddings, embeddings[:10, :]))
+        embeddings = new_embeddings[:int(new_embeddings.shape[0] // 10) * 10]
+
+        # Prepare batch of 10s samples
+        embeddings = embeddings.reshape(-1, 10, 128)
+
+        # Normalize and move from uint8_to_float32
+        embeddings = (np.float32(embeddings) - 128.) / 128.
+
         return embeddings
-
-    def classifier_post_process(self, raw_preds):
-        """
-        This function converts raw result vectors into a more interpretable format.
-        Input args:
-            raw_preds : numpy array of size (527,1) containing class scores.
-        Returns :
-            preds : list of (label_id,label,probability) tuples for top 5 class scores.
-        """
-        top_preds = raw_preds.argsort()[-5:][::-1]
-        preds = [(self.indices.loc[top_preds[i]]['mid'], self.indices.loc[top_preds[i]]['display_name'],
-                  raw_preds[top_preds[i]]) for i in range(len(top_preds))]
-        return preds
-
-    def uint8_to_float32(self, x):
-        return (np.float32(x) - 128.) / 128.

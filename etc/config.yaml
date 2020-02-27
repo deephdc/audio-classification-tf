@@ -65,6 +65,8 @@ preprocessing:
     type: "bool"
     help: >
           Whether to compute the embeddings. You can disable this option if you already have computed the embeddings.
+          If you disable this option then the paths in your `train.txt`and `val.txt` should point to the `.npy`
+          embedding files. And `dataset_directory` should point to the directory containing the embeddings.
 
 
 #####################################################
@@ -176,3 +178,21 @@ monitor:
     type: "bool"
     help: >
           Forward the logs through a defined port if executing in a remote machine.
+
+#####################################################
+#  Options to test your model
+#####################################################
+
+testing:
+
+  timestamp:
+    value:
+    type: "str"
+    help: >
+      Model timestamp to use for prediction.
+
+  ckpt_name:
+    value: "final_model.h5"
+    type: "str"
+    help: >
+      Checkpoint inside the timestamp to use for prediction.

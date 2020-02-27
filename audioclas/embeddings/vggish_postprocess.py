@@ -17,7 +17,7 @@
 
 import numpy as np
 
-from audioclas import vggish_params
+from audioclas.embeddings import vggish_params
 
 
 class Postprocessor(object):
