@@ -78,6 +78,7 @@ def load_inference_model(timestamp=None, ckpt_name=None):
     # Set the timestamp
     timestamp_list = next(os.walk(paths.get_models_dir()))[1]
     timestamp_list = sorted(timestamp_list)
+    timestamp_list.remove('common')  # common files do not count as full model
     if not timestamp_list:
         raise Exception(
             "You have no models in your `./models` folder to be used for inference. "
@@ -401,7 +402,7 @@ def get_predict_args():
     # Add options for modelname
     timestamp = default_conf['testing']['timestamp']
     timestamp_list = next(os.walk(paths.get_models_dir()))[1]
-    timestamp_list.remove('common')
+    timestamp_list.remove('common')  # common files do not count as full model
     timestamp_list = sorted(timestamp_list)
     if not timestamp_list:
         timestamp['value'] = ''
