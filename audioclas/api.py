@@ -21,6 +21,7 @@ gevent, uwsgi.
 import builtins
 from collections import OrderedDict
 from datetime import datetime
+from functools import wraps
 import json
 import magic
 import mimetypes
@@ -37,7 +38,6 @@ import numpy as np
 import requests
 from tensorflow.keras import backend as K
 from webargs import fields
-from aiohttp.web import HTTPBadRequest
 
 from audioclas import config, paths, misc
 from audioclas.data_utils import load_class_names, load_class_info, bytes_to_PCM_16bits
@@ -170,11 +170,15 @@ def update_with_query_conf(user_args):
 
 
 def catch_error(f):
+    @wraps(f)
     def wrap(*args, **kwargs):
         try:
-            return f(*args, **kwargs)
+            pred = f(*args, **kwargs)
+            return {'status': 'OK',
+                    'predictions': pred}
         except Exception as e:
-            raise HTTPBadRequest(reason=e)
+            return {'status': 'error',
+                    'message': str(e)}
     return wrap
 
 
@@ -456,3 +460,10 @@ def get_metadata(distribution_name='audioclas'):
         meta[var.capitalize()] = os.getenv(var)
 
     return meta
+
+
+schema = {
+    "status": fields.Str(),
+    "message": fields.Str(),
+    "predictions": fields.Field()
+}
