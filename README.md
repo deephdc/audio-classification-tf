@@ -12,7 +12,15 @@ This is a plug-and-play tool to perform audio classification with Deep Learning.
 samples of audio as well as training their own classifier for a custom problem. The classifier is currently
 [pretrained](models/default) on the 527 high-level classes from the [AudioSet](https://research.google.com/audioset/) dataset.
 
-You can find more information about it in the [DEEP Marketplace](https://marketplace.deep-hybrid-datacloud.eu/modules/train-an-audio-classifier.html).
+You can find more information about it in the [DEEP Marketplace](https://marketplace.deep-hybrid-datacloud.eu/modules/deep-oc-audio-classification-tf.html).
+
+**Table of contents**
+1. [Installing this module](#installing-this-module)
+    1. [Local installation](#local-installation)
+    2. [Docker installation](#docker-installation)
+2. [Train an audio classifier](#train-an-audio-classifier)
+3. [Test an audio classifier](#test-an-audio-classifier)
+4. [Acknowledgements](#acknowledgments)
 
 ![demo](./reports/figures/demo.png)
 
@@ -132,14 +140,11 @@ The main changes with respect to the original repo are that:
 
 If you consider this project to be useful, please consider citing the DEEP Hybrid DataCloud project:
 
-* García, Álvaro López, et al. ["A Cloud-Based Framework for Machine Learning Workloads and Applications."](https://ieeexplore.ieee.org/abstract/document/8950411/authors) IEEE Access 8 (2020): 18681-18692.
+> García, Álvaro López, et al. [A Cloud-Based Framework for Machine Learning Workloads and Applications.](https://ieeexplore.ieee.org/abstract/document/8950411/authors) IEEE Access 8 (2020): 18681-18692. 
  
 along with any of the references below:
 
-* _Jort F. Gemmeke, Daniel P. W. Ellis, Dylan Freedman, Aren Jansen, Wade Lawrence, R. Channing Moore, Manoj Plakal, Marvin Ritter_,["Audio set: An ontology and human-labeled dataset for audio events"](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45857.pdf), IEEE ICASSP, 2017.
-
-* _Qiuqiang Kong, Yong Xu, Wenwu Wang, Mark D. Plumbley_,["Audio Set classification with attention model: A probabilistic perspective."](https://arxiv.org/pdf/1711.00927.pdf) arXiv preprint arXiv:1711.00927 (2017).
-
-* _Changsong Yu, Karim Said Barsim, Qiuqiang Kong, Bin Yang_ ,["Multi-level Attention Model for Weakly Supervised Audio Classification."](https://arxiv.org/pdf/1803.02353.pdf) arXiv preprint arXiv:1803.02353 (2018).
-
-* _S. Hershey, S. Chaudhuri, D. P. W. Ellis, J. F. Gemmeke, A. Jansen, R. C. Moore, M. Plakal, D. Platt, R. A. Saurous, B. Seybold et  al._, ["CNN architectures for large-scale audio classification,"](https://arxiv.org/pdf/1609.09430.pdf) arXiv preprint arXiv:1609.09430, 2016.
+> * Jort F. Gemmeke, et al., [Audio set: An ontology and human-labeled dataset for audio events](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/45857.pdf), IEEE ICASSP, 2017.
+> * Qiuqiang Kong, et al., [Audio Set classification with attention model: A probabilistic perspective.](https://arxiv.org/pdf/1711.00927.pdf) arXiv preprint arXiv:1711.00927 (2017).
+> * Changsong Yu, et al., [Multi-level Attention Model for Weakly Supervised Audio Classification.](https://arxiv.org/pdf/1803.02353.pdf) arXiv preprint arXiv:1803.02353 (2018).
+> * S. Hershey, et  al., [CNN architectures for large-scale audio classification,](https://arxiv.org/pdf/1609.09430.pdf) arXiv preprint arXiv:1609.09430, 2016.
