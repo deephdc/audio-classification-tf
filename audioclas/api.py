@@ -213,7 +213,10 @@ def catch_localfile_error(file_list):
 
 
 def warm():
-    load_inference_model()
+    try:
+        load_inference_model()
+    except Exception as e:
+        print(e)
 
 
 @catch_error
