@@ -40,7 +40,7 @@ You can find more information about it in the [DEEP Marketplace](https://marketp
 > - It is a requirement to have [Tensorflow>=1.14.0 installed](https://www.tensorflow.org/install/pip) (either in gpu
 > or cpu mode). This is not listed in the `requirements.txt` as it [breaks GPU support](https://github.com/tensorflow/tensorflow/issues/7166).
 
-To start using this framework clone the repo and download the [default weights](https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz):
+To start using this framework clone the repo and download the [default weights](https://api.cloud.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz):
 
 ```bash
 git clone https://github.com/deephdc/audio-classification-tf
