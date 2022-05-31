@@ -46,7 +46,7 @@ To start using this framework clone the repo and download the [default weights](
 git clone https://github.com/deephdc/audio-classification-tf
 cd audio-classification-tf
 pip install -e .
-curl -o ./models/default.tar.gz https://cephrgw01.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz
+curl -o ./models/default.tar.gz https://api.cloud.ifca.es:8080/swift/v1/audio-classification-tf/default.tar.gz
 cd models && tar -zxvf default.tar.gz && rm default.tar.gz 
 ```
 now run DEEPaaS:
